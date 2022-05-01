@@ -261,6 +261,7 @@ public class ChatActivity extends AppCompatActivity {
 
         Intent editContactIntent = new Intent(ChatActivity.this, EditProfileActivity.class);
         editContactIntent.putExtra(Constants.EXTRA_CONTACT_DEVICE_ID, contact.getDeviceID());
+        editContactIntent.putExtra(Constants.EXTRA_PHONE_NUMBER, contact.getPhoneNumber());
         startActivityForResult(editContactIntent, Constants.REQUEST_EDIT_PROFILE);
     }
 

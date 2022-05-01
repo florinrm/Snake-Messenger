@@ -27,6 +27,7 @@ public interface Constants {
     String SHARED_PREFERENCES_SIGNED_IN = "spSignedIn";
     String SHARED_PREFERENCES_PHOTO_URI = "spPhotoUri";
     String SHARED_PREFERENCES_SERVICE_STARTED = "spServiceStarted";
+    String SHARED_PREFERENCES_PHONE_NUMBER = "phoneNumber";
 
     String SHARED_PREFERENCES_STATUS_AVAILABLE = "Available";
 
@@ -52,6 +53,7 @@ public interface Constants {
     String EXTRA_IMAGE_CAPTURE_DATA = "data";
     String EXTRA_CONTACT_DEVICE_ID = "deviceId";
     String EXTRA_NOTIFICATION_ID = "notificationId";
+    String EXTRA_PHONE_NUMBER = "phoneNumber";
 
     String SERVICE_NOTIFICATION_CHANNEL = "Service";
     String SERVICE_NOTIFICATION_CHANNEL_DESCRIPTION = "This channel is dedicated to the communication service running outside the application";
@@ -93,7 +95,10 @@ public interface Constants {
                     Manifest.permission.ACCESS_WIFI_STATE,
                     Manifest.permission.CHANGE_WIFI_STATE,
                     Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.ACCESS_FINE_LOCATION
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.READ_SMS,
+                    Manifest.permission.READ_PHONE_NUMBERS,
+                    Manifest.permission.READ_PHONE_STATE
             };
 
     int REQUEST_IMAGE_CAPTURE = 111;

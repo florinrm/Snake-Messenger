@@ -1,7 +1,9 @@
 package com.example.snakemessenger;
 
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -23,6 +25,10 @@ import com.example.snakemessenger.database.AppDatabase;
 import com.example.snakemessenger.general.Constants;
 import com.example.snakemessenger.models.Message;
 import com.example.snakemessenger.services.BackgroundCommunicationService;
+import com.google.android.gms.auth.api.Auth;
+import com.google.android.gms.auth.api.credentials.Credential;
+import com.google.android.gms.auth.api.credentials.HintRequest;
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 
@@ -32,8 +38,10 @@ import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
     public static final String TAG = "[MainActivity]";
+    private static final int RESOLVE_HINT = 120;
 
     private SharedPreferences loginPreferences;
+    private GoogleApiClient googleApiClient;
     public static AppDatabase db;
 
     public static String myDeviceId;
@@ -48,6 +56,10 @@ public class MainActivity extends AppCompatActivity {
         mToolbar.setTitle(Constants.APP_TITLE);
         setSupportActionBar(mToolbar);
 
+        googleApiClient = new GoogleApiClient.Builder(this)
+                .addApi(Auth.CREDENTIALS_API)
+                .build();
+
         db = Room.databaseBuilder(getApplicationContext(), AppDatabase.class, Constants.DATABASE_NAME)
                 .allowMainThreadQueries()
                 .build();
@@ -60,6 +72,12 @@ public class MainActivity extends AppCompatActivity {
         loginPreferences = getApplicationContext().getSharedPreferences(Constants.SHARED_PREFERENCES, MODE_PRIVATE);
 
         myDeviceId = loginPreferences.getString(Constants.SHARED_PREFERENCES_DEVICE_ID, "");
+
+        try {
+            fetchPhoneNumber();
+        } catch (IntentSender.SendIntentException e) {
+            e.printStackTrace();
+        }
 
         if (!BackgroundCommunicationService.running) {
             Log.d(TAG, "Starting background communication service...");
@@ -164,8 +182,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void sendUserToEditProfileActivity() {
         Log.d(TAG, "sendUserToSettingActivity: starting settings activity...");
+        String phoneNumber = loginPreferences.getString(Constants.SHARED_PREFERENCES_PHONE_NUMBER, "");
         Intent editProfileIntent = new Intent(MainActivity.this, EditProfileActivity.class);
         editProfileIntent.putExtra(Constants.EXTRA_CONTACT_DEVICE_ID, "");
+        editProfileIntent.putExtra(Constants.EXTRA_PHONE_NUMBER, phoneNumber);
         startActivity(editProfileIntent);
     }
 
@@ -175,5 +195,34 @@ public class MainActivity extends AppCompatActivity {
         loginIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(loginIntent);
         finish();
+    }
+
+    private void fetchPhoneNumber() throws IntentSender.SendIntentException {
+        if (loginPreferences.contains(Constants.SHARED_PREFERENCES_PHONE_NUMBER)) {
+            return;
+        }
+        HintRequest hintRequest = new HintRequest.Builder()
+                .setPhoneNumberIdentifierSupported(true)
+                .build();
+
+        PendingIntent intent = Auth.CredentialsApi.getHintPickerIntent(
+                googleApiClient, hintRequest);
+        startIntentSenderForResult(intent.getIntentSender(),
+                RESOLVE_HINT, null, 0, 0, 0);
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == RESOLVE_HINT) {
+            if (resultCode == RESULT_OK) {
+                Credential credential = data.getParcelableExtra(Credential.EXTRA_KEY);
+                String phoneNumber = credential.getId();
+                Log.d(TAG, "fetchPhoneNumber: fetched phone number " + phoneNumber);
+                SharedPreferences.Editor editor = loginPreferences.edit();
+                editor.putString(Constants.SHARED_PREFERENCES_PHONE_NUMBER, phoneNumber);
+                editor.apply();
+            }
+        }
     }
 }

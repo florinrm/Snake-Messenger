@@ -120,22 +120,26 @@ public class EditProfileActivity extends AppCompatActivity {
         String deviceId;
         String description;
         String photoUri;
+        String phoneNumber;
 
         if (contact == null) {
             name = loginPreferences.getString(Constants.SHARED_PREFERENCES_NAME, "");
             deviceId = loginPreferences.getString(Constants.SHARED_PREFERENCES_DEVICE_ID, "");
             description = loginPreferences.getString(Constants.SHARED_PREFERENCES_STATUS, "");
             photoUri = loginPreferences.getString(Constants.SHARED_PREFERENCES_PHOTO_URI, "");
+            phoneNumber = loginPreferences.getString(Constants.SHARED_PREFERENCES_PHONE_NUMBER, "");
         } else {
             name = contact.getName();
             deviceId = contact.getDeviceID();
             description = contact.getDescription();
             photoUri = contact.getPhotoUri();
+            phoneNumber = contact.getPhoneNumber();
         }
 
         binding.setUserName.setText(name);
         binding.setDeviceId.setText(deviceId);
         binding.setProfileStatus.setText(description);
+        binding.phoneNumber.setText(phoneNumber);
 
         if (photoUri != null && !photoUri.isEmpty()) {
             imageUri = Uri.parse(photoUri);

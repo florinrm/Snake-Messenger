@@ -19,6 +19,9 @@ public class Contact {
     @ColumnInfo(name = "endpointID")
     private String endpointID;
 
+    @ColumnInfo(name = "phoneNumber")
+    private String phoneNumber;
+
     @ColumnInfo(name = "connected")
     private boolean connected;
 
@@ -153,5 +156,13 @@ public class Contact {
 
     public void setNearby(boolean nearby) {
         this.nearby = nearby;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 }

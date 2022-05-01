@@ -195,6 +195,7 @@ public class ContactsFragment extends Fragment {
 
         Intent editProfileIntent = new Intent(getActivity(), EditProfileActivity.class);
         editProfileIntent.putExtra(Constants.EXTRA_CONTACT_DEVICE_ID, contact.getDeviceID());
+        editProfileIntent.putExtra(Constants.EXTRA_PHONE_NUMBER, contact.getPhoneNumber());
         startActivity(editProfileIntent);
     }
 
