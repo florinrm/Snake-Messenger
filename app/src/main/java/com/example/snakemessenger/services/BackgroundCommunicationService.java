@@ -85,6 +85,7 @@ public class BackgroundCommunicationService extends Service {
                 @Override
                 public void onEndpointFound(@NonNull final String endpointId, @NonNull final DiscoveredEndpointInfo info) {
                     String endpointDeviceId = info.getEndpointName();
+                    byte[] endpointInfo = info.getEndpointInfo();
 
                     Log.d(TAG, "onEndpointFound: found device with endpointId " + endpointId + " and phone " + endpointDeviceId);
 
@@ -106,6 +107,7 @@ public class BackgroundCommunicationService extends Service {
                                 endpointDeviceId,
                                 endpointDeviceId,
                                 endpointId,
+                                null,
                                 false,
                                 System.currentTimeMillis(),
                                 "",
@@ -151,6 +153,7 @@ public class BackgroundCommunicationService extends Service {
                 @Override
                 public void onConnectionInitiated(@NonNull final String endpointId, @NonNull final ConnectionInfo connectionInfo) {
                     final String endpointDeviceId = connectionInfo.getEndpointName();
+                    byte[] endpointInfo = connectionInfo.getEndpointInfo();
 
                     Log.d(TAG, "onConnectionInitiated: initiated connection with device having endpointId " + endpointId + " and phone " + endpointDeviceId);
 
@@ -179,6 +182,7 @@ public class BackgroundCommunicationService extends Service {
                                 endpointDeviceId,
                                 endpointDeviceId,
                                 endpointId,
+                                null,
                                 false,
                                 System.currentTimeMillis(),
                                 "",

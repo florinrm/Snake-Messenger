@@ -173,6 +173,7 @@ public class AddContactActivity extends AppCompatActivity {
 
         Intent editProfileIntent = new Intent(AddContactActivity.this, EditProfileActivity.class);
         editProfileIntent.putExtra(Constants.EXTRA_CONTACT_DEVICE_ID, contact.getDeviceID());
+        editProfileIntent.putExtra(Constants.EXTRA_PHONE_NUMBER, contact.getPhoneNumber());
         startActivity(editProfileIntent);
     }
 }

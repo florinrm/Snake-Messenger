@@ -50,12 +50,13 @@ public class Contact {
     public Contact() {
     }
 
-    public Contact(int id, String name, String deviceID, String endpointID, boolean connected, long lastActive,
+    public Contact(int id, String name, String deviceID, String endpointID, String phoneNumber, boolean connected, long lastActive,
                    String description, String photoUri, boolean chat, long lastMessageTimestamp, boolean saved, boolean nearby) {
         this.id = id;
         this.name = name;
         this.deviceID = deviceID;
         this.endpointID = endpointID;
+        this.phoneNumber = phoneNumber;
         this.connected = connected;
         this.lastActive = lastActive;
         this.description = description;
