@@ -29,6 +29,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity android:name=".logging.LogsActivity" />
+        <activity android:name=".chats.PreviewVideoActivity" />
         <activity android:name=".chats.PreviewPictureActivity" />
         <activity android:name=".chats.SendMessageActivity" />
         <activity
