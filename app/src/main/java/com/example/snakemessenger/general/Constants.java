@@ -102,6 +102,7 @@ public interface Constants {
     int REQUEST_PREVIEW_PICTURE = 333;
     int REQUEST_EDIT_PROFILE = 444;
     int REQUEST_PERMISSIONS = 555;
+    int REQUEST_ACCESS_FILE = 666;
 
     int MESSAGE_TYPE_HELLO = 0;
     int MESSAGE_TYPE_MESSAGE = 1;

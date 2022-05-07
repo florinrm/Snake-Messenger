@@ -158,6 +158,24 @@ public class Utilities {
                 .show();
     }
 
+    public static void dispatchAttachFileIntent(Context context) {
+        if (((Activity) context).checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_DENIED) {
+            String[] permission = {Manifest.permission.READ_EXTERNAL_STORAGE};
+
+            ((Activity) context).requestPermissions(permission, Constants.REQUEST_ACCESS_FILE);
+        } else {
+            Intent attachFileIntent = new Intent(Intent.ACTION_GET_CONTENT);
+            attachFileIntent.setType("application/*");
+
+            try {
+                ((Activity) context).startActivityForResult(attachFileIntent, Constants.REQUEST_ACCESS_FILE);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     public static void dispatchTakePictureIntent(Context context) {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 
