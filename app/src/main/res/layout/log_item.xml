@@ -23,6 +23,17 @@
             android:layout_marginStart="10dp"/>
 
         <TextView
+            android:id="@+id/source_timestamp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:text="@string/timestamp"
+            android:textColor="@color/colorText"
+            android:layout_below="@id/source_contact_name_item"
+            android:layout_marginTop="20dp"
+            android:layout_marginStart="10dp"/>
+
+        <TextView
             android:id="@+id/destination_contact_name_item"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -30,18 +41,8 @@
             android:textStyle="bold"
             android:text="@string/contact_name"
             android:textColor="@color/colorAccent"
-            android:layout_below="@id/source_contact_name_item"
+            android:layout_below="@id/source_timestamp"
             android:layout_marginTop="20dp"
-            android:layout_marginStart="10dp"/>
-
-        <TextView
-            android:id="@+id/source_timestamp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="18sp"
-            android:text="@string/timestamp"
-            android:textColor="@color/colorText"
-            android:layout_alignParentEnd="true"
             android:layout_marginStart="10dp"/>
 
         <TextView
@@ -51,8 +52,7 @@
             android:textSize="18sp"
             android:text="@string/timestamp"
             android:textColor="@color/colorText"
-            android:layout_below="@id/source_timestamp"
-            android:layout_alignParentEnd="true"
+            android:layout_below="@id/destination_contact_name_item"
             android:layout_marginTop="20dp"
             android:layout_marginStart="10dp"/>
     </RelativeLayout>

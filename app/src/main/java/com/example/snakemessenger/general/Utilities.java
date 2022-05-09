@@ -76,6 +76,17 @@ public class Utilities {
 
             db.getContactDao().updateContact(contact);
 
+            if (messageStatus == Constants.MESSAGE_STATUS_RECEIVED) {
+                MessageExchangeLog messageExchangeLog = new MessageExchangeLog(0,
+                        messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
+                        messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
+                        messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
+                        System.currentTimeMillis()
+                );
+
+                db.getMessageExchangeLogDao().addMessageExchangeLog(messageExchangeLog);
+            }
+
             return message;
         } catch (JSONException e) {
             Log.d(MainActivity.TAG, "saveOwnMessageToDatabase: could not save Own Message to Room. Error: " + e.getMessage());
@@ -107,15 +118,6 @@ public class Utilities {
             );
 
             db.getMessageDao().addMessage(message);
-
-            MessageExchangeLog messageExchangeLog = new MessageExchangeLog(0,
-                    messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
-                    messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
-                    messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
-                    System.currentTimeMillis()
-            );
-
-            db.getMessageExchangeLogDao().addMessageExchangeLog(messageExchangeLog);
 
             Log.d(MainActivity.TAG, "saveMessageInfoToDatabase: saved Data Memory Message to Room");
         } catch (JSONException e) {
