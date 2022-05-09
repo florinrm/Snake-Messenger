@@ -1,16 +1,13 @@
 package com.example.snakemessenger.chats;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.widget.ImageView;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
-import com.example.snakemessenger.R;
 import com.example.snakemessenger.databinding.ActivityPreviewPictureBinding;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 public class PreviewPictureActivity extends AppCompatActivity {
     public static Bitmap imageBitmap;

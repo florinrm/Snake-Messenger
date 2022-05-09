@@ -11,4 +11,9 @@
         android:title="Sign out"
         android:id="@+id/main_sign_out_option"
         app:showAsAction="never"/>
+
+    <item
+        android:title="Check logs"
+        android:id="@+id/main_check_logs_option"
+        app:showAsAction="never"/>
 </menu>

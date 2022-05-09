@@ -17,6 +17,7 @@ import com.example.snakemessenger.models.Contact;
 import com.example.snakemessenger.models.ImageMessage;
 import com.example.snakemessenger.models.ImagePart;
 import com.example.snakemessenger.models.Message;
+import com.example.snakemessenger.models.MessageExchangeLog;
 import com.example.snakemessenger.notifications.NotificationHandler;
 
 import org.json.JSONException;
@@ -74,6 +75,17 @@ public class Utilities {
             }
 
             db.getContactDao().updateContact(contact);
+
+            if (messageStatus == Constants.MESSAGE_STATUS_RECEIVED) {
+                MessageExchangeLog messageExchangeLog = new MessageExchangeLog(0,
+                        messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
+                        messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
+                        messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
+                        System.currentTimeMillis()
+                );
+
+                db.getMessageExchangeLogDao().addMessageExchangeLog(messageExchangeLog);
+            }
 
             return message;
         } catch (JSONException e) {

@@ -21,6 +21,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.example.snakemessenger.authentication.SignInActivity;
 import com.example.snakemessenger.database.AppDatabase;
 import com.example.snakemessenger.general.Constants;
+import com.example.snakemessenger.logging.LogsActivity;
 import com.example.snakemessenger.models.Message;
 import com.example.snakemessenger.services.BackgroundCommunicationService;
 import com.google.android.material.tabs.TabLayout;
@@ -157,6 +158,9 @@ public class MainActivity extends AppCompatActivity {
 
             sendUserToLoginActivity();
             Toast.makeText(MainActivity.this, Constants.TOAST_SIGNED_OUT, Toast.LENGTH_SHORT).show();
+        } else if (item.getItemId() == R.id.main_check_logs_option) {
+            Log.d(TAG, "onOptionsItemSelected: check logs option selected");
+            sendUserToLogsActivity();
         }
 
         return true;
@@ -175,5 +179,11 @@ public class MainActivity extends AppCompatActivity {
         loginIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(loginIntent);
         finish();
+    }
+
+    private void sendUserToLogsActivity() {
+        Log.d(TAG, "sendUserToSettingActivity: starting logs activity...");
+        Intent logsIntent = new Intent(MainActivity.this, LogsActivity.class);
+        startActivity(logsIntent);
     }
 }
