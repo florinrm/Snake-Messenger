@@ -28,7 +28,9 @@ class LogsActivity : AppCompatActivity() {
         logsAdapter = LogsAdapter(listOf())
         binding.logsRecyclerView.adapter = logsAdapter
         db.messageExchangeLogDao.getLiveMessageExchangeLogs().observe(this, { logs ->
-            logsAdapter.logs = logs
+            val mutableLogs = logs.toMutableList()
+            mutableLogs.sortBy { it.sourceTimestamp }
+            logsAdapter.logs = mutableLogs
             binding.logsRecyclerView.scrollToPosition(logs.size - 1)
         })
     }
