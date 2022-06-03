@@ -25,6 +25,8 @@ import com.example.snakemessenger.general.Constants;
 import com.example.snakemessenger.general.Utilities;
 import com.example.snakemessenger.managers.CommunicationManager;
 import com.example.snakemessenger.models.Contact;
+import com.example.snakemessenger.models.FileMessage;
+import com.example.snakemessenger.models.FilePart;
 import com.example.snakemessenger.models.ImageMessage;
 import com.example.snakemessenger.models.ImagePart;
 import com.example.snakemessenger.models.Message;
@@ -65,6 +67,7 @@ public class BackgroundCommunicationService extends Service {
 
     public static boolean running = false;
     private Map<String, ImageMessage> incomingImageMessages;
+    private Map<String, FileMessage> incomingFileMessages;
 
     private final BatteryStatusReceiver batteryStatusReceiver = new BatteryStatusReceiver();
     private class BatteryStatusReceiver extends BroadcastReceiver {
@@ -318,7 +321,13 @@ public class BackgroundCommunicationService extends Service {
                             Payload payload = incomingPayloads.get(payloadId);
 
                             if (payload != null) {
-                                Log.d(TAG, "onPayloadTransferUpdate: received an image");
+                                if (message != null) {
+                                    if (message.getContentType() == Constants.CONTENT_IMAGE) {
+                                        Log.d(TAG, "onPayloadTransferUpdate: received an image");
+                                    } else if (message.getContentType() == Constants.CONTENT_FILE) {
+                                        Log.d(TAG, "onPayloadTransferUpdate: received a file");
+                                    }
+                                }
 
                                 InputStream messageStream = payload.asStream().asInputStream();
                                 try {
@@ -332,43 +341,85 @@ public class BackgroundCommunicationService extends Service {
                                         break;
                                     }
 
-                                    long imageSize = messageJSON.getLong(Constants.JSON_IMAGE_SIZE_KEY);
+                                    if (messageJSON.getInt(Constants.JSON_CONTENT_TYPE_KEY) == Constants.CONTENT_IMAGE) {
 
-                                    Log.d(TAG, "onPayloadTransferUpdate: the image's total size is " + imageSize);
+                                        long imageSize = messageJSON.getLong(Constants.JSON_IMAGE_SIZE_KEY);
 
-                                    if (imageSize > Constants.MAX_IMAGE_SIZE) {
-                                        Log.d(TAG, "onPayloadTransferUpdate: the image's size exceeds the maximum allowed size of one message!");
+                                        Log.d(TAG, "onPayloadTransferUpdate: the image's total size is " + imageSize);
 
-                                        String messageId = messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY);
+                                        if (imageSize > Constants.MAX_IMAGE_SIZE) {
+                                            Log.d(TAG, "onPayloadTransferUpdate: the image's size exceeds the maximum allowed size of one message!");
 
-                                        int partNo = messageJSON.getInt(Constants.JSON_IMAGE_PART_NO_KEY);
-                                        int partSize = messageJSON.getInt(Constants.JSON_IMAGE_PART_SIZE_KEY);
-                                        String encryptedContent = messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY);
-                                        String encryptKey = messageJSON.getString(Constants.JSON_ENCRYPTION_KEY);
-                                        String content = CryptoManager.INSTANCE.decryptMessage(encryptKey, encryptedContent);
-                                        byte[] contentBytes = Base64.decode(content, Base64.DEFAULT);
+                                            String messageId = messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY);
 
-                                        Log.d(TAG, "onPayloadTransferUpdate: received chunk with number " + partNo + " of size " + partSize);
+                                            int partNo = messageJSON.getInt(Constants.JSON_IMAGE_PART_NO_KEY);
+                                            int partSize = messageJSON.getInt(Constants.JSON_IMAGE_PART_SIZE_KEY);
+                                            String encryptedContent = messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY);
+                                            String encryptKey = messageJSON.getString(Constants.JSON_ENCRYPTION_KEY);
+                                            String content = CryptoManager.INSTANCE.decryptMessage(encryptKey, encryptedContent);
+                                            byte[] contentBytes = Base64.decode(content, Base64.DEFAULT);
 
-                                        ImagePart imagePart = new ImagePart(partNo, partSize, contentBytes);
+                                            Log.d(TAG, "onPayloadTransferUpdate: received chunk with number " + partNo + " of size " + partSize);
 
-                                        if (!incomingImageMessages.containsKey(messageId)) {
-                                            Log.d(TAG, "onPayloadTransferUpdate: this is the first chunk received for this image");
-                                            ImageMessage imageMessage = new ImageMessage(
-                                                    messageId,
-                                                    messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
-                                                    messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
-                                                    messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
-                                                    messageJSON.getInt(Constants.JSON_IMAGE_SIZE_KEY)
-                                            );
+                                            ImagePart imagePart = new ImagePart(partNo, partSize, contentBytes);
 
-                                            incomingImageMessages.put(messageId, imageMessage);
+                                            if (!incomingImageMessages.containsKey(messageId)) {
+                                                Log.d(TAG, "onPayloadTransferUpdate: this is the first chunk received for this image");
+                                                ImageMessage imageMessage = new ImageMessage(
+                                                        messageId,
+                                                        messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
+                                                        messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
+                                                        messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
+                                                        messageJSON.getInt(Constants.JSON_IMAGE_SIZE_KEY)
+                                                );
+
+                                                incomingImageMessages.put(messageId, imageMessage);
+                                            }
+
+                                            long chunkTimestamp = messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY);
+
+                                            insertImagePart(contact, messageId, imagePart, payload.getId(), chunkTimestamp);
+                                            break;
                                         }
+                                    } else if (messageJSON.getInt(Constants.JSON_CONTENT_TYPE_KEY) == Constants.CONTENT_FILE) {
+                                        long fileSize = messageJSON.getLong(Constants.JSON_FILE_SIZE_KEY);
 
-                                        long chunkTimestamp = messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY);
+                                        Log.d(TAG, "onPayloadTransferUpdate: the file's total size is " + fileSize);
 
-                                        insertImagePart(contact, messageId, imagePart, payload.getId(), chunkTimestamp);
-                                        break;
+                                        if (fileSize > Constants.MAX_FILE_SIZE) {
+                                            Log.d(TAG, "onPayloadTransferUpdate: the file's size exceeds the maximum allowed size of one message!");
+
+                                            String messageId = messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY);
+
+                                            int partNo = messageJSON.getInt(Constants.JSON_FILE_PART_NO_KEY);
+                                            int partSize = messageJSON.getInt(Constants.JSON_FILE_PART_SIZE_KEY);
+                                            String encryptedContent = messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY);
+                                            String encryptKey = messageJSON.getString(Constants.JSON_ENCRYPTION_KEY);
+                                            String content = CryptoManager.INSTANCE.decryptMessage(encryptKey, encryptedContent);
+                                            byte[] contentBytes = Base64.decode(content, Base64.DEFAULT);
+
+                                            Log.d(TAG, "onPayloadTransferUpdate: received chunk with number " + partNo + " of size " + partSize);
+
+                                            FilePart filePart = new FilePart(partNo, partSize, contentBytes);
+
+                                            if (!incomingFileMessages.containsKey(messageId)) {
+                                                Log.d(TAG, "onPayloadTransferUpdate: this is the first chunk received for this file");
+                                                FileMessage fileMessage = new FileMessage(
+                                                        messageId,
+                                                        messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
+                                                        messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
+                                                        messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
+                                                        messageJSON.getInt(Constants.JSON_FILE_SIZE_KEY)
+                                                );
+
+                                                incomingFileMessages.put(messageId, fileMessage);
+                                            }
+
+                                            long chunkTimestamp = messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY);
+
+                                            insertFilePart(contact, messageId, filePart, payload.getId(), chunkTimestamp);
+                                            break;
+                                        }
                                     }
                                 } catch (IOException | JSONException e) {
                                     Log.d(TAG, "onPayloadTransferUpdate: an error occurred while receiving the image payload: " + e.getMessage());
@@ -444,12 +495,36 @@ public class BackgroundCommunicationService extends Service {
         }
     }
 
+    private void insertFilePart(Contact contact, String messageId, FilePart filePart, long payloadId, long timestamp) {
+        FileMessage fileMessage = incomingFileMessages.get(messageId);
+
+        if (fileMessage != null && !fileMessage.getParts().contains(filePart)) {
+            fileMessage.addPart(filePart);
+            fileMessage.setPayloadId(payloadId);
+            fileMessage.setTimestamp(timestamp);
+
+            int currentSize = fileMessage.getCurrentSize();
+            int totalSize = fileMessage.getTotalSize();
+            Log.d(TAG, "insertFilePart: current size is " + currentSize);
+
+            if (currentSize == totalSize) {
+                Log.d(TAG, "insertFilePart: this chunk filled the file! Assembling and inserting it into the local storage...");
+
+                Utilities.saveFileToDatabase(this, contact, fileMessage);
+                incomingFileMessages.remove(messageId);
+            } else {
+                incomingFileMessages.put(messageId, fileMessage);
+            }
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
 
         pendingConnectionsData = new HashMap<>();
         incomingImageMessages = new HashMap<>();
+        incomingFileMessages = new HashMap<>();
         registerReceiver(batteryStatusReceiver, intentFilter);
 
         Log.d(TAG, "onCreate: service has been created");

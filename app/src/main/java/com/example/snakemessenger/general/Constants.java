@@ -84,6 +84,9 @@ public interface Constants {
     String JSON_IMAGE_SIZE_KEY = "imageSize";
     String JSON_IMAGE_PART_NO_KEY = "partNo";
     String JSON_IMAGE_PART_SIZE_KEY = "partSize";
+    String JSON_FILE_SIZE_KEY = "fileSize";
+    String JSON_FILE_PART_NO_KEY = "partNo";
+    String JSON_FILE_PART_SIZE_KEY = "partSize";
     String JSON_MESSAGE_TOTAL_SIZE = "totalSize";
     String JSON_ENCRYPTION_KEY = "encryptionKey";
 
@@ -94,7 +97,9 @@ public interface Constants {
                     Manifest.permission.ACCESS_WIFI_STATE,
                     Manifest.permission.CHANGE_WIFI_STATE,
                     Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.ACCESS_FINE_LOCATION
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
             };
 
     int REQUEST_IMAGE_CAPTURE = 111;
@@ -115,12 +120,16 @@ public interface Constants {
 
     int CONTENT_TEXT = 0;
     int CONTENT_IMAGE = 1;
+    int CONTENT_FILE = 2;
 
     int MAX_SEND_TIMES = 10;
     int MAX_IMAGE_SIZE = 25000;
+    int MAX_FILE_SIZE = 25000;
 
     int RECEIVED_TEXT_MESSAGE = 0;
     int RECEIVED_IMAGE_MESSAGE = 1;
-    int SENT_TEXT_MESSAGE = 2;
-    int SENT_IMAGE_MESSAGE = 3;
+    int RECEIVED_FILE_MESSAGE = 2;
+    int SENT_TEXT_MESSAGE = 3;
+    int SENT_IMAGE_MESSAGE = 4;
+    int SENT_FILE_MESSAGE = 5;
 }

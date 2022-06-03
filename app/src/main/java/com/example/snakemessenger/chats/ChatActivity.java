@@ -308,6 +308,9 @@ public class ChatActivity extends AppCompatActivity {
         } else if (requestCode == Constants.REQUEST_ACCESS_FILE && resultCode == RESULT_OK) {
             Uri fileUri = data.getData();
             Log.d(TAG, "File: " + fileUri.getPath());
+
+            new Thread(() -> CommunicationManager.buildAndDeliverFileMessage(getApplicationContext(), fileUri, contact)).start();
+            Toast.makeText(ChatActivity.this, "File sent!", Toast.LENGTH_SHORT).show();
         }
     }
 

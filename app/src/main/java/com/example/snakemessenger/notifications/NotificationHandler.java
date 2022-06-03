@@ -102,6 +102,12 @@ public class NotificationHandler {
                             msg.getTimestamp(),
                             sender.getName()
                     );
+                } else if (msg.getContentType() == Constants.CONTENT_FILE) {
+                    notificationMessage = new NotificationCompat.MessagingStyle.Message(
+                            "Sent a file",
+                            msg.getTimestamp(),
+                            sender.getName()
+                    );
                 } else {
                     notificationMessage = new NotificationCompat.MessagingStyle.Message(
                             msg.getContent(),
@@ -116,6 +122,12 @@ public class NotificationHandler {
                 if (msg.getContentType() == Constants.CONTENT_IMAGE) {
                     notificationMessage = new NotificationCompat.MessagingStyle.Message(
                             "Sent a photo",
+                            msg.getTimestamp(),
+                            sharedPreferences.getString(Constants.SHARED_PREFERENCES_NAME, Constants.NOTIFICATION_MESSAGE_USER_NAME)
+                    );
+                } else if (msg.getContentType() == Constants.CONTENT_FILE) {
+                    notificationMessage = new NotificationCompat.MessagingStyle.Message(
+                            "Sent a file",
                             msg.getTimestamp(),
                             sharedPreferences.getString(Constants.SHARED_PREFERENCES_NAME, Constants.NOTIFICATION_MESSAGE_USER_NAME)
                     );
