@@ -87,6 +87,8 @@ public interface Constants {
     String JSON_FILE_SIZE_KEY = "fileSize";
     String JSON_FILE_PART_NO_KEY = "partNo";
     String JSON_FILE_PART_SIZE_KEY = "partSize";
+    String JSON_FILE_EXTENSION = "fileExtension";
+    String JSON_FILE_NAME = "fileName";
     String JSON_MESSAGE_TOTAL_SIZE = "totalSize";
     String JSON_ENCRYPTION_KEY = "encryptionKey";
 

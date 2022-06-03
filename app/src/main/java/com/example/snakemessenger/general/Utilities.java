@@ -279,7 +279,7 @@ public class Utilities {
 
         byte[] fileBytes = fileByteBuffer.array();
         Log.d(TAG, "saveFileToDatabase: file byte array has size " + fileBytes.length);
-        String filename = fileMessage.getMessageId() + ".pdf";
+        String filename = fileMessage.getFileName();
         Log.d(TAG, "Filename: " + filename);
 
         String filePath = "";
@@ -300,7 +300,8 @@ public class Utilities {
         } else {
             try {
                 ContentValues values = new ContentValues();
-                values.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileMessage.getFileName());
+                values.put(MediaStore.MediaColumns.MIME_TYPE, fileMessage.getFileExtension());
                 values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/SnakeMessenger/");
 
                 Uri uri = context.getContentResolver().insert(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL), values);

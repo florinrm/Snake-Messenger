@@ -406,10 +406,12 @@ public class BackgroundCommunicationService extends Service {
                                                 Log.d(TAG, "onPayloadTransferUpdate: this is the first chunk received for this file");
                                                 FileMessage fileMessage = new FileMessage(
                                                         messageId,
+                                                        messageJSON.getString(Constants.JSON_FILE_NAME),
                                                         messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
                                                         messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
                                                         messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
-                                                        messageJSON.getInt(Constants.JSON_FILE_SIZE_KEY)
+                                                        messageJSON.getInt(Constants.JSON_FILE_SIZE_KEY),
+                                                        messageJSON.getString(Constants.JSON_FILE_EXTENSION)
                                                 );
 
                                                 incomingFileMessages.put(messageId, fileMessage);

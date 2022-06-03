@@ -1,12 +1,16 @@
 package com.example.snakemessenger.managers;
 
+import android.content.ContentResolver;
 import android.content.Context;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.util.Log;
+import android.webkit.MimeTypeMap;
 import android.widget.Toast;
 
 import com.example.snakemessenger.Utils;
@@ -303,6 +307,10 @@ public class CommunicationManager {
             long payloadId = 0;
             long timestamp = System.currentTimeMillis();
 
+            String fileExtension = getFileExtension(context, fileUri);
+            String fileName = getFileName(context, fileUri);
+            Log.d(TAG, "FileExtension: " + fileExtension);
+
             Log.d(TAG, "buildAndDeliverFileMessage: file size is " + fileBytes.length + " B");
 
             for (int i = 0, count = 0; i < fileBytes.length; i += Constants.MAX_FILE_SIZE, count++) {
@@ -343,6 +351,8 @@ public class CommunicationManager {
                     messageJSON.put(Constants.JSON_FILE_PART_NO_KEY, count);
                     messageJSON.put(Constants.JSON_FILE_PART_SIZE_KEY, lastIdx - i);
                     messageJSON.put(Constants.JSON_FILE_SIZE_KEY, fileBytes.length);
+                    messageJSON.put(Constants.JSON_FILE_EXTENSION, fileExtension);
+                    messageJSON.put(Constants.JSON_FILE_NAME, fileName);
 
                     InputStream messageStream = new ByteArrayInputStream(messageJSON.toString().getBytes());
                     Payload messagePayload = Payload.fromStream(messageStream);
@@ -358,7 +368,7 @@ public class CommunicationManager {
 
             JSONObject messageJSON = new JSONObject();
             String encryptionKey = CryptoManager.INSTANCE.generateKey();
-            String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, fileUri.toString());
+            String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, fileName);
 
             messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
             messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
@@ -369,6 +379,8 @@ public class CommunicationManager {
             messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
             messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, fileBytes.length);
+            messageJSON.put(Constants.JSON_FILE_EXTENSION, fileExtension);
+            messageJSON.put(Constants.JSON_FILE_NAME, fileName);
 
             Utilities.saveOwnMessageToDatabase(messageJSON, payloadId, Constants.MESSAGE_STATUS_SENT);
         } catch (FileNotFoundException e) {
@@ -552,5 +564,28 @@ public class CommunicationManager {
             Log.d(TAG, "markMessagesAsDelivered: could not mark messages as delivered. Error: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private static String getFileExtension(Context context, Uri uri) {
+        return context.getContentResolver().getType(uri);
+    }
+
+    private static String getFileName(Context context, Uri uri) {
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            try (Cursor cursor = context.getContentResolver().query(uri, null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) {
+                result = result.substring(cut + 1);
+            }
+        }
+        return result;
     }
 }
