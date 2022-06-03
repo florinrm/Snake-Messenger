@@ -3,17 +3,23 @@ package com.example.snakemessenger.general;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 
 import com.example.snakemessenger.MainActivity;
 import com.example.snakemessenger.crypto.CryptoManager;
 import com.example.snakemessenger.models.Contact;
+import com.example.snakemessenger.models.FileMessage;
+import com.example.snakemessenger.models.FilePart;
 import com.example.snakemessenger.models.ImageMessage;
 import com.example.snakemessenger.models.ImagePart;
 import com.example.snakemessenger.models.Message;
@@ -23,6 +29,11 @@ import com.example.snakemessenger.notifications.NotificationHandler;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
@@ -145,7 +156,7 @@ public class Utilities {
                             break;
 
                         case 1:
-                            if (((Activity) context).checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                            if (context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ==
                                     PackageManager.PERMISSION_DENIED) {
                                 String[] permission = {Manifest.permission.READ_EXTERNAL_STORAGE};
 
@@ -156,6 +167,24 @@ public class Utilities {
                     }
                 })
                 .show();
+    }
+
+    public static void dispatchAttachFileIntent(Context context) {
+        if (context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_DENIED) {
+            String[] permission = {Manifest.permission.READ_EXTERNAL_STORAGE};
+
+            ((Activity) context).requestPermissions(permission, Constants.REQUEST_ACCESS_FILE);
+        } else {
+            Intent attachFileIntent = new Intent(Intent.ACTION_GET_CONTENT);
+            attachFileIntent.setType("application/*");
+
+            try {
+                ((Activity) context).startActivityForResult(attachFileIntent, Constants.REQUEST_ACCESS_FILE);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public static void dispatchTakePictureIntent(Context context) {
@@ -234,6 +263,93 @@ public class Utilities {
             Log.d(TAG, "saveImageToDatabase: the message is routing to another device");
 
             saveDataMemoryMessageToDatabase(messageJSON, imageMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+        }
+    }
+
+    public static void saveFileToDatabase(Context context, Contact contact, FileMessage fileMessage) {
+        List<FilePart> fileParts = fileMessage.getParts();
+        Collections.sort(fileParts);
+
+        ByteBuffer fileByteBuffer = ByteBuffer.allocate(fileMessage.getTotalSize());
+
+        for (FilePart part : fileParts) {
+            Log.d(TAG, "saveFileToDatabase: adding chunk " + part.getPartNo());
+            fileByteBuffer.put(part.getContent());
+        }
+
+        byte[] fileBytes = fileByteBuffer.array();
+        Log.d(TAG, "saveFileToDatabase: file byte array has size " + fileBytes.length);
+        String filename = fileMessage.getFileName();
+        Log.d(TAG, "Filename: " + filename);
+
+        String filePath = "";
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            String path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).toString();
+            File file = new File(path, filename);
+            filePath = file.getAbsolutePath();
+            try {
+                FileOutputStream stream = new FileOutputStream(file);
+                stream.write(fileBytes);
+                stream.close();
+            } catch (IOException e) {
+                Log.d(TAG, "saveFileToDatabase: could not save file in storage. Error: " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+        } else {
+            try {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileMessage.getFileName());
+                values.put(MediaStore.MediaColumns.MIME_TYPE, fileMessage.getFileExtension());
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/SnakeMessenger/");
+
+                Uri uri = context.getContentResolver().insert(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL), values);
+                OutputStream stream = context.getContentResolver().openOutputStream(uri);
+                filePath = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL).getPath();
+                stream.write(fileBytes);
+                stream.close();
+            } catch (IOException e) {
+                Log.d(TAG, "saveFileToDatabase: could not save file in storage. Error: " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+        }
+
+        JSONObject messageJSON = new JSONObject();
+
+        try {
+            String encryptionKey = CryptoManager.INSTANCE.generateKey();
+            String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, filePath);
+            messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, fileMessage.getMessageId());
+            messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, fileMessage.getSourceId());
+            messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, fileMessage.getDestinationId());
+            messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, fileMessage.getTimestamp());
+            messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_FILE);
+            messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
+            messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+            messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, fileMessage.getTotalSize());
+        } catch (JSONException e) {
+            Log.d(TAG, "saveFileToDatabase: could not save file. Error: " + e.getMessage());
+            e.printStackTrace();
+            return;
+        }
+
+        String destinationId = fileMessage.getDestinationId();
+
+        if (destinationId.equals(myDeviceId)) {
+            Log.d(TAG, "saveFileToDatabase: the message is for the current device");
+
+            Message receivedMessage = saveOwnMessageToDatabase(messageJSON, fileMessage.getPayloadId(), Constants.MESSAGE_STATUS_RECEIVED);
+
+            if (currentChat == null || !currentChat.equals(contact.getDeviceID())) {
+                NotificationHandler.sendMessageNotification(context, contact, receivedMessage);
+            }
+        } else {
+            Log.d(TAG, "saveFileToDatabase: the message is routing to another device");
+
+            saveDataMemoryMessageToDatabase(messageJSON, fileMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
         }
     }
 }

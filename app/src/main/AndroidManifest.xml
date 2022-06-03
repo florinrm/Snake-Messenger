@@ -33,6 +33,7 @@
         <activity android:name=".chats.SendMessageActivity" />
         <activity
             android:name=".LauncherActivity"
+            android:exported="true"
             android:noHistory="false">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

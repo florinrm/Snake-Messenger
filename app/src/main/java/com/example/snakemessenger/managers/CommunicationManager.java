@@ -1,33 +1,41 @@
 package com.example.snakemessenger.managers;
 
+import android.content.ContentResolver;
 import android.content.Context;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
+import android.util.Base64;
 import android.util.Log;
+import android.webkit.MimeTypeMap;
+import android.widget.Toast;
 
+import com.example.snakemessenger.Utils;
 import com.example.snakemessenger.crypto.CryptoManager;
+import com.example.snakemessenger.general.Constants;
 import com.example.snakemessenger.general.Utilities;
 import com.example.snakemessenger.models.Contact;
 import com.example.snakemessenger.models.Message;
-import com.example.snakemessenger.general.Constants;
 import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.connection.Payload;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
-import android.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
 import static com.example.snakemessenger.MainActivity.TAG;
-import static com.example.snakemessenger.MainActivity.myDeviceId;
 import static com.example.snakemessenger.MainActivity.db;
+import static com.example.snakemessenger.MainActivity.myDeviceId;
 
 public class CommunicationManager {
     public static void deliverMessage(Context context, Message message, Contact contact) {
@@ -35,86 +43,11 @@ public class CommunicationManager {
 
         if (message.getContentType() == Constants.CONTENT_IMAGE && message.getTotalSize() > Constants.MAX_IMAGE_SIZE) {
             Log.d(TAG, "deliverMessage: message contains an image that must be sent in chunks");
-
-            String imagePath = message.getContent();
-            long payloadId = 0;
-
-            Uri imageUri = Uri.parse(imagePath);
-
-            Bitmap imageBitmap = null;
-
-            try {
-                imageBitmap = BitmapFactory.decodeStream(context.getContentResolver().openInputStream(imageUri));
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            }
-
-            if (imageBitmap == null) {
-                Log.d(TAG, "deliverMessage: image bitmap is null!");
-                return;
-            }
-
-            int size = imageBitmap.getRowBytes() * imageBitmap.getHeight();
-
-            Log.d(TAG, "buildAndDeliverImageMessage: image size is " + size + " B");
-
-            ByteArrayOutputStream stream = new ByteArrayOutputStream();
-            imageBitmap.compress(Bitmap.CompressFormat.PNG, 70, stream);
-            byte[] imageBytes = stream.toByteArray();
-
-            for (int i = 0, count = 0; i < imageBytes.length; i += Constants.MAX_IMAGE_SIZE, count++) {
-                Log.d(TAG, "deliverMessage: sending chunk " + count + " of the image");
-
-                byte[] imageChunk = (imageBytes.length - i - 1) > Constants.MAX_IMAGE_SIZE ?
-                        new byte[Constants.MAX_IMAGE_SIZE] : new byte[imageBytes.length - i];
-                int lastIdx = i;
-
-                if ((imageBytes.length - i - 1) > Constants.MAX_IMAGE_SIZE) {
-                    lastIdx += Constants.MAX_IMAGE_SIZE;
-                } else {
-                    lastIdx += imageBytes.length - i;
-                }
-
-                if (lastIdx - i >= 0) {
-                    System.arraycopy(imageBytes, i, imageChunk, 0, lastIdx - i);
-                }
-
-                Log.d(TAG, "deliverMessage: chunk has size " + (lastIdx - i));
-
-                String chunkContent = Base64.encodeToString(imageChunk, Base64.DEFAULT);
-
-                JSONObject messageJSON = new JSONObject();
-
-                try {
-                    String encryptionKey = CryptoManager.INSTANCE.generateKey();
-                    String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, chunkContent);
-
-                    messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, message.getMessageId());
-                    messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, message.getSource());
-                    messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, message.getDestination());
-                    messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, message.getTimestamp());
-                    messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, message.getContentType());
-                    messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, message.getType());
-                    messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
-                    messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
-                    messageJSON.put(Constants.JSON_IMAGE_PART_NO_KEY, count);
-                    messageJSON.put(Constants.JSON_IMAGE_PART_SIZE_KEY, lastIdx - i);
-                    messageJSON.put(Constants.JSON_IMAGE_SIZE_KEY, imageBytes.length);
-
-                    InputStream messageStream = new ByteArrayInputStream(messageJSON.toString().getBytes());
-                    Payload messagePayload = Payload.fromStream(messageStream);
-                    Nearby.getConnectionsClient(context).sendPayload(contact.getEndpointID(), messagePayload);
-                    payloadId = messagePayload.getId();
-                    Log.d(TAG, "deliverMessage: sent chunk " + count + " of image having payload ID " + payloadId);
-                } catch (JSONException e) {
-                    Log.d(TAG, "deliverMessage: could not deliver message. Error: " + e.getMessage());
-                    e.printStackTrace();
-                }
-            }
-
-            message.setPayloadId(payloadId);
-            db.getMessageDao().updateMessage(message);
-
+            deliverImageMessage(context, message, contact);
+            return;
+        } else if (message.getContentType() == Constants.CONTENT_FILE && message.getTotalSize() > Constants.MAX_FILE_SIZE){
+            Log.d(TAG, "deliverMessage: message contains an file that must be sent in chunks");
+            deliverFileMessage(context, message, contact);
             return;
         }
 
@@ -145,6 +78,91 @@ public class CommunicationManager {
             Log.d(TAG, "deliverMessage: could not deliver message. Error: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private static void deliverImageMessage(Context context, Message message, Contact contact) {
+        String imagePath = message.getContent();
+        long payloadId = 0;
+
+        Uri imageUri = Uri.parse(imagePath);
+
+        Bitmap imageBitmap = null;
+
+        try {
+            imageBitmap = BitmapFactory.decodeStream(context.getContentResolver().openInputStream(imageUri));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        if (imageBitmap == null) {
+            Log.d(TAG, "deliverMessage: image bitmap is null!");
+            return;
+        }
+
+        int size = imageBitmap.getRowBytes() * imageBitmap.getHeight();
+
+        Log.d(TAG, "buildAndDeliverImageMessage: image size is " + size + " B");
+
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+        imageBitmap.compress(Bitmap.CompressFormat.PNG, 70, stream);
+        byte[] imageBytes = stream.toByteArray();
+
+        for (int i = 0, count = 0; i < imageBytes.length; i += Constants.MAX_IMAGE_SIZE, count++) {
+            Log.d(TAG, "deliverMessage: sending chunk " + count + " of the image");
+
+            byte[] imageChunk = (imageBytes.length - i - 1) > Constants.MAX_IMAGE_SIZE ?
+                    new byte[Constants.MAX_IMAGE_SIZE] : new byte[imageBytes.length - i];
+            int lastIdx = i;
+
+            if ((imageBytes.length - i - 1) > Constants.MAX_IMAGE_SIZE) {
+                lastIdx += Constants.MAX_IMAGE_SIZE;
+            } else {
+                lastIdx += imageBytes.length - i;
+            }
+
+            if (lastIdx - i >= 0) {
+                System.arraycopy(imageBytes, i, imageChunk, 0, lastIdx - i);
+            }
+
+            Log.d(TAG, "deliverMessage: chunk has size " + (lastIdx - i));
+
+            String chunkContent = Base64.encodeToString(imageChunk, Base64.DEFAULT);
+
+            JSONObject messageJSON = new JSONObject();
+
+            try {
+                String encryptionKey = CryptoManager.INSTANCE.generateKey();
+                String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, chunkContent);
+
+                messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, message.getMessageId());
+                messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, message.getSource());
+                messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, message.getDestination());
+                messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, message.getTimestamp());
+                messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, message.getContentType());
+                messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, message.getType());
+                messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+                messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+                messageJSON.put(Constants.JSON_IMAGE_PART_NO_KEY, count);
+                messageJSON.put(Constants.JSON_IMAGE_PART_SIZE_KEY, lastIdx - i);
+                messageJSON.put(Constants.JSON_IMAGE_SIZE_KEY, imageBytes.length);
+
+                InputStream messageStream = new ByteArrayInputStream(messageJSON.toString().getBytes());
+                Payload messagePayload = Payload.fromStream(messageStream);
+                Nearby.getConnectionsClient(context).sendPayload(contact.getEndpointID(), messagePayload);
+                payloadId = messagePayload.getId();
+                Log.d(TAG, "deliverMessage: sent chunk " + count + " of image having payload ID " + payloadId);
+            } catch (JSONException e) {
+                Log.d(TAG, "deliverMessage: could not deliver message. Error: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
+        message.setPayloadId(payloadId);
+        db.getMessageDao().updateMessage(message);
+    }
+
+    private static void deliverFileMessage(Context context, Message message, Contact contact) {
+        // TODO
     }
 
     public static Message buildAndDeliverMessage(Context context, String messageContent, Contact contact) {
@@ -268,6 +286,105 @@ public class CommunicationManager {
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, imageBytes.length);
 
             Utilities.saveOwnMessageToDatabase(messageJSON, payloadId, Constants.MESSAGE_STATUS_SENT);
+        } catch (JSONException e) {
+            Log.d(TAG, "buildAndDeliverImageMessage: could not deliver image. Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static void buildAndDeliverFileMessage(Context context, Uri fileUri, Contact contact) {
+        Log.d(TAG, "buildAndDeliverFileMessage: building and sending file message to " + contact.getName());
+
+        InputStream stream;
+        try {
+            stream = context.getContentResolver().openInputStream(fileUri);
+            if (stream == null) {
+                Toast.makeText(context, "Cannot open file!", Toast.LENGTH_LONG).show();
+                return;
+            }
+            byte[] fileBytes = Utils.INSTANCE.convertInputStreamToByteArray(stream);
+            String messageId = UUID.randomUUID().toString();
+            long payloadId = 0;
+            long timestamp = System.currentTimeMillis();
+
+            String fileExtension = getFileExtension(context, fileUri);
+            String fileName = getFileName(context, fileUri);
+            Log.d(TAG, "FileExtension: " + fileExtension);
+
+            Log.d(TAG, "buildAndDeliverFileMessage: file size is " + fileBytes.length + " B");
+
+            for (int i = 0, count = 0; i < fileBytes.length; i += Constants.MAX_FILE_SIZE, count++) {
+                Log.d(TAG, "buildAndDeliverFileMessage: sending chunk " + count + " of the file");
+
+                byte[] imageChunk = (fileBytes.length - i - 1) > Constants.MAX_FILE_SIZE ?
+                        new byte[Constants.MAX_FILE_SIZE] : new byte[fileBytes.length - i];
+                int lastIdx = i;
+
+                if ((fileBytes.length - i - 1) > Constants.MAX_FILE_SIZE) {
+                    lastIdx += Constants.MAX_FILE_SIZE;
+                } else {
+                    lastIdx += fileBytes.length - i;
+                }
+
+                if (lastIdx - i >= 0) {
+                    System.arraycopy(fileBytes, i, imageChunk, 0, lastIdx - i);
+                }
+
+                Log.d(TAG, "buildAndDeliverFileMessage: chunk has size " + (lastIdx - i));
+
+                String chunkContent = Base64.encodeToString(imageChunk, Base64.DEFAULT);
+
+                JSONObject messageJSON = new JSONObject();
+
+                try {
+                    String encryptionKey = CryptoManager.INSTANCE.generateKey();
+                    String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, chunkContent);
+
+                    messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
+                    messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
+                    messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
+                    messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, timestamp);
+                    messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_FILE);
+                    messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
+                    messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+                    messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+                    messageJSON.put(Constants.JSON_FILE_PART_NO_KEY, count);
+                    messageJSON.put(Constants.JSON_FILE_PART_SIZE_KEY, lastIdx - i);
+                    messageJSON.put(Constants.JSON_FILE_SIZE_KEY, fileBytes.length);
+                    messageJSON.put(Constants.JSON_FILE_EXTENSION, fileExtension);
+                    messageJSON.put(Constants.JSON_FILE_NAME, fileName);
+
+                    InputStream messageStream = new ByteArrayInputStream(messageJSON.toString().getBytes());
+                    Payload messagePayload = Payload.fromStream(messageStream);
+                    Nearby.getConnectionsClient(context).sendPayload(contact.getEndpointID(), messagePayload);
+                    payloadId = messagePayload.getId();
+
+                    Log.d(TAG, "buildAndDeliverFileMessage: sent file chunk with payload ID " + payloadId);
+                } catch (JSONException e) {
+                    Log.d(TAG, "buildAndDeliverFileMessage: could not deliver message. Error: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+
+            JSONObject messageJSON = new JSONObject();
+            String encryptionKey = CryptoManager.INSTANCE.generateKey();
+            String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, fileName);
+
+            messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
+            messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
+            messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
+            messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, timestamp);
+            messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_FILE);
+            messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
+            messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+            messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, fileBytes.length);
+            messageJSON.put(Constants.JSON_FILE_EXTENSION, fileExtension);
+            messageJSON.put(Constants.JSON_FILE_NAME, fileName);
+
+            Utilities.saveOwnMessageToDatabase(messageJSON, payloadId, Constants.MESSAGE_STATUS_SENT);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
         } catch (JSONException e) {
             Log.d(TAG, "buildAndDeliverImageMessage: could not deliver image. Error: " + e.getMessage());
             e.printStackTrace();
@@ -447,5 +564,28 @@ public class CommunicationManager {
             Log.d(TAG, "markMessagesAsDelivered: could not mark messages as delivered. Error: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private static String getFileExtension(Context context, Uri uri) {
+        return context.getContentResolver().getType(uri);
+    }
+
+    private static String getFileName(Context context, Uri uri) {
+        String result = null;
+        if (uri.getScheme().equals("content")) {
+            try (Cursor cursor = context.getContentResolver().query(uri, null, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst()) {
+                    result = cursor.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME));
+                }
+            }
+        }
+        if (result == null) {
+            result = uri.getPath();
+            int cut = result.lastIndexOf('/');
+            if (cut != -1) {
+                result = result.substring(cut + 1);
+            }
+        }
+        return result;
     }
 }

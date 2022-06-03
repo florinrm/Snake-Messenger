@@ -9,13 +9,16 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.example.snakemessenger.R;
+import com.example.snakemessenger.databinding.ChatReceivedFileMessageBinding;
+import com.example.snakemessenger.databinding.ChatSentFileMessageBinding;
 import com.example.snakemessenger.general.Constants;
 import com.example.snakemessenger.managers.DateManager;
-import com.example.snakemessenger.R;
 import com.example.snakemessenger.models.Contact;
 import com.example.snakemessenger.models.Message;
 
@@ -52,10 +55,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 return Constants.RECEIVED_TEXT_MESSAGE;
             }
 
+            if (contentType == Constants.CONTENT_FILE) {
+                return Constants.RECEIVED_FILE_MESSAGE;
+            }
+
             return Constants.RECEIVED_IMAGE_MESSAGE;
         } else {
             if (contentType == Constants.CONTENT_TEXT) {
                 return Constants.SENT_TEXT_MESSAGE;
+            }
+
+            if (contentType == Constants.CONTENT_FILE) {
+                return Constants.SENT_FILE_MESSAGE;
             }
 
             return Constants.SENT_IMAGE_MESSAGE;
@@ -76,10 +87,16 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 itemView = LayoutInflater.from(parent.getContext())
                         .inflate(R.layout.chat_sent_image_message, parent, false);
                 return new CurrentUserImageMessageViewHolder(itemView);
+            case Constants.SENT_FILE_MESSAGE:
+                return new CurrentUserFileMessageViewHolder(ChatSentFileMessageBinding
+                        .inflate(LayoutInflater.from(parent.getContext()), parent, false));
             case Constants.RECEIVED_TEXT_MESSAGE:
                 itemView = LayoutInflater.from(parent.getContext())
                         .inflate(R.layout.chat_received_text_message, parent, false);
                 return new OtherUserTextMessageViewHolder(itemView);
+            case Constants.RECEIVED_FILE_MESSAGE:
+                return new OtherUserFileMessageViewHolder(ChatReceivedFileMessageBinding
+                        .inflate(LayoutInflater.from(parent.getContext()), parent, false));
             default:
                 itemView = LayoutInflater.from(parent.getContext())
                         .inflate(R.layout.chat_received_image_message, parent, false);
@@ -163,6 +180,29 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     siHolder.getMessageStatusImageView().setImageResource(R.drawable.ic_baseline_done_all_24);
                 }
                 break;
+            case Constants.SENT_FILE_MESSAGE:
+                CurrentUserFileMessageViewHolder sfHolder = (CurrentUserFileMessageViewHolder) holder;
+
+                SharedPreferences sfSharedPreferences = context.getSharedPreferences(Constants.SHARED_PREFERENCES, MODE_PRIVATE);
+
+                String sfName = sfSharedPreferences.getString(Constants.SHARED_PREFERENCES_NAME, "");
+                String sfPhotoUri = sfSharedPreferences.getString(Constants.SHARED_PREFERENCES_PHOTO_URI, null);
+
+                if (sfPhotoUri != null) {
+                    Uri imageUri = Uri.parse(sfPhotoUri);
+                    Glide.with(context).load(imageUri).into(sfHolder.getSenderProfilePictureImageView());
+                }
+
+                sfHolder.getSenderNameTextView().setText(sfName);
+                sfHolder.getTimestampTextView().setText(DateManager.getLastActiveText(ft.format(currentDate), ft.format(date)));
+                sfHolder.getFileNameTextView().setText(messageContent);
+
+                if (currentMessage.getStatus() == Constants.MESSAGE_STATUS_SENT) {
+                    sfHolder.getMessageStatusImageView().setImageResource(R.drawable.ic_baseline_done_24);
+                } else {
+                    sfHolder.getMessageStatusImageView().setImageResource(R.drawable.ic_baseline_done_all_24);
+                }
+                break;
             case Constants.RECEIVED_TEXT_MESSAGE:
                 OtherUserTextMessageViewHolder rtHolder = (OtherUserTextMessageViewHolder) holder;
 
@@ -175,7 +215,18 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 rtHolder.getMessageContentTextView().setText(messageContent);
                 rtHolder.getTimestampTextView().setText(DateManager.getLastActiveText(ft.format(currentDate), ft.format(date)));
                 break;
+            case Constants.RECEIVED_FILE_MESSAGE:
+                OtherUserFileMessageViewHolder rfHolder = (OtherUserFileMessageViewHolder) holder;
 
+                if (contact.getPhotoUri() != null) {
+                    Uri imageUri = Uri.parse(contact.getPhotoUri());
+                    Glide.with(context).load(imageUri).into(rfHolder.getSenderProfilePictureImageView());
+                }
+
+                rfHolder.getSenderNameTextView().setText(contact.getName());
+                rfHolder.getTimestampTextView().setText(DateManager.getLastActiveText(ft.format(currentDate), ft.format(date)));
+                rfHolder.getFileNameTextView().setText(messageContent);
+                break;
             default:
                 OtherUserImageMessageViewHolder riHolder = (OtherUserImageMessageViewHolder) holder;
 
