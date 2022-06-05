@@ -17,9 +17,10 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.example.snakemessenger.MainActivity;
 import com.example.snakemessenger.R;
-import com.example.snakemessenger.database.AppDatabase;
+import com.example.snakemessenger.databinding.ChatReceivedAudioMessageBinding;
 import com.example.snakemessenger.databinding.ChatReceivedFileMessageBinding;
 import com.example.snakemessenger.databinding.ChatReceivedVideoMessageBinding;
+import com.example.snakemessenger.databinding.ChatSentAudioMessageBinding;
 import com.example.snakemessenger.databinding.ChatSentFileMessageBinding;
 import com.example.snakemessenger.databinding.ChatSentVideoMessageBinding;
 import com.example.snakemessenger.general.Constants;
@@ -68,6 +69,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 return Constants.RECEIVED_VIDEO_MESSAGE;
             }
 
+            if (contentType == Constants.CONTENT_AUDIO) {
+                return Constants.RECEIVED_AUDIO_MESSAGE;
+            }
+
             return Constants.RECEIVED_IMAGE_MESSAGE;
         } else {
             if (contentType == Constants.CONTENT_TEXT) {
@@ -80,6 +85,10 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
             if (contentType == Constants.CONTENT_VIDEO) {
                 return Constants.SENT_VIDEO_MESSAGE;
+            }
+
+            if (contentType == Constants.CONTENT_AUDIO) {
+                return Constants.SENT_AUDIO_MESSAGE;
             }
 
             return Constants.SENT_IMAGE_MESSAGE;
@@ -106,6 +115,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             case Constants.SENT_VIDEO_MESSAGE:
                 return new CurrentUserVideoMessageViewHolder(ChatSentVideoMessageBinding
                         .inflate(LayoutInflater.from(parent.getContext()), parent, false));
+            case Constants.SENT_AUDIO_MESSAGE:
+                return new CurrentUserAudioMessageViewHolder(ChatSentAudioMessageBinding
+                        .inflate(LayoutInflater.from(parent.getContext()), parent, false));
             case Constants.RECEIVED_TEXT_MESSAGE:
                 itemView = LayoutInflater.from(parent.getContext())
                         .inflate(R.layout.chat_received_text_message, parent, false);
@@ -115,6 +127,9 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                         .inflate(LayoutInflater.from(parent.getContext()), parent, false));
             case Constants.RECEIVED_VIDEO_MESSAGE:
                 return new OtherUserVideoMessageViewHolder(ChatReceivedVideoMessageBinding
+                        .inflate(LayoutInflater.from(parent.getContext()), parent, false));
+            case Constants.RECEIVED_AUDIO_MESSAGE:
+                return new OtherUserAudioMessageViewHolder(ChatReceivedAudioMessageBinding
                         .inflate(LayoutInflater.from(parent.getContext()), parent, false));
             default:
                 itemView = LayoutInflater.from(parent.getContext())
@@ -251,6 +266,35 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     svHolder.getMessageStatusImageView().setImageResource(R.drawable.ic_baseline_done_all_24);
                 }
                 break;
+            case Constants.SENT_AUDIO_MESSAGE:
+                CurrentUserAudioMessageViewHolder saHolder = (CurrentUserAudioMessageViewHolder) holder;
+
+                SharedPreferences saSharedPreferences = context.getSharedPreferences(Constants.SHARED_PREFERENCES, MODE_PRIVATE);
+
+                String saName = saSharedPreferences.getString(Constants.SHARED_PREFERENCES_NAME, "");
+                String saPhotoUri = saSharedPreferences.getString(Constants.SHARED_PREFERENCES_PHOTO_URI, null);
+
+                if (saPhotoUri != null) {
+                    Uri imageUri = Uri.parse(saPhotoUri);
+                    Glide.with(context).load(imageUri).into(saHolder.getSenderProfilePictureImageView());
+                }
+
+                saHolder.getSenderNameTextView().setText(saName);
+                saHolder.getTimestampTextView().setText(DateManager.getLastActiveText(ft.format(currentDate), ft.format(date)));
+
+                Uri saVideoUri = Uri.parse(MainActivity.db.getMediaMessageUriDao()
+                        .findByMessageId(currentMessage.getMessageId()).getVideoUri());
+                MediaController saMediaController = new MediaController(context);
+                saMediaController.setMediaPlayer(saHolder.getMessageContentVideoView());
+                saHolder.getMessageContentVideoView().setVideoURI(saVideoUri);
+                saHolder.getMessageContentVideoView().setMediaController(saMediaController);
+
+                if (currentMessage.getStatus() == Constants.MESSAGE_STATUS_SENT) {
+                    saHolder.getMessageStatusImageView().setImageResource(R.drawable.ic_baseline_done_24);
+                } else {
+                    saHolder.getMessageStatusImageView().setImageResource(R.drawable.ic_baseline_done_all_24);
+                }
+                break;
             case Constants.RECEIVED_TEXT_MESSAGE:
                 OtherUserTextMessageViewHolder rtHolder = (OtherUserTextMessageViewHolder) holder;
 
@@ -292,6 +336,24 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 rvMediaController.setMediaPlayer(rvHolder.getMessageContentVideoView());
                 rvHolder.getMessageContentVideoView().setVideoURI(rvVideoUri);
                 rvHolder.getMessageContentVideoView().setMediaController(rvMediaController);
+                break;
+            case Constants.RECEIVED_AUDIO_MESSAGE:
+                OtherUserAudioMessageViewHolder raHolder = (OtherUserAudioMessageViewHolder) holder;
+
+                if (contact.getPhotoUri() != null) {
+                    Uri imageUri = Uri.parse(contact.getPhotoUri());
+                    Glide.with(context).load(imageUri).into(raHolder.getSenderProfilePictureImageView());
+                }
+
+                raHolder.getSenderNameTextView().setText(contact.getName());
+                raHolder.getTimestampTextView().setText(DateManager.getLastActiveText(ft.format(currentDate), ft.format(date)));
+
+                Uri raVideoUri = Uri.parse(MainActivity.db.getMediaMessageUriDao()
+                        .findByMessageId(currentMessage.getMessageId()).getVideoUri());
+                MediaController raMediaController = new MediaController(context);
+                raMediaController.setMediaPlayer(raHolder.getMessageContentVideoView());
+                raHolder.getMessageContentVideoView().setVideoURI(raVideoUri);
+                raHolder.getMessageContentVideoView().setMediaController(raMediaController);
                 break;
             default:
                 OtherUserImageMessageViewHolder riHolder = (OtherUserImageMessageViewHolder) holder;

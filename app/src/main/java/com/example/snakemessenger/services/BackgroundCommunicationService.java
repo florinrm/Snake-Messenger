@@ -24,6 +24,8 @@ import com.example.snakemessenger.crypto.CryptoManager;
 import com.example.snakemessenger.general.Constants;
 import com.example.snakemessenger.general.Utilities;
 import com.example.snakemessenger.managers.CommunicationManager;
+import com.example.snakemessenger.models.AudioMessage;
+import com.example.snakemessenger.models.AudioPart;
 import com.example.snakemessenger.models.Contact;
 import com.example.snakemessenger.models.FileMessage;
 import com.example.snakemessenger.models.FilePart;
@@ -71,6 +73,7 @@ public class BackgroundCommunicationService extends Service {
     private Map<String, ImageMessage> incomingImageMessages;
     private Map<String, FileMessage> incomingFileMessages;
     private Map<String, VideoMessage> incomingVideoMessages;
+    private Map<String, AudioMessage> incomingAudioMessages;
 
     private final BatteryStatusReceiver batteryStatusReceiver = new BatteryStatusReceiver();
     private class BatteryStatusReceiver extends BroadcastReceiver {
@@ -331,6 +334,8 @@ public class BackgroundCommunicationService extends Service {
                                         Log.d(TAG, "onPayloadTransferUpdate: received a file");
                                     } else if (message.getContentType() == Constants.CONTENT_VIDEO) {
                                         Log.d(TAG, "onPayloadTransferUpdate: received a video");
+                                    } else if (message.getContentType() == Constants.CONTENT_AUDIO) {
+                                        Log.d(TAG, "onPayloadTransferUpdate: received an audio");
                                     }
                                 }
 
@@ -468,6 +473,47 @@ public class BackgroundCommunicationService extends Service {
                                             insertVideoPart(contact, messageId, filePart, payload.getId(), chunkTimestamp);
                                             break;
                                         }
+                                    } else if (messageJSON.getInt(Constants.JSON_CONTENT_TYPE_KEY) == Constants.CONTENT_AUDIO) {
+                                        long audioSize = messageJSON.getLong(Constants.JSON_AUDIO_SIZE_KEY);
+
+                                        Log.d(TAG, "onPayloadTransferUpdate: the audios's total size is " + audioSize);
+
+                                        if (audioSize > Constants.MAX_AUDIO_SIZE) {
+                                            Log.d(TAG, "onPayloadTransferUpdate: the videos's size exceeds the maximum allowed size of one message!");
+
+                                            String messageId = messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY);
+
+                                            int partNo = messageJSON.getInt(Constants.JSON_AUDIO_PART_NO_KEY);
+                                            int partSize = messageJSON.getInt(Constants.JSON_AUDIO_PART_SIZE_KEY);
+                                            String encryptedContent = messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY);
+                                            String encryptKey = messageJSON.getString(Constants.JSON_ENCRYPTION_KEY);
+                                            String content = CryptoManager.INSTANCE.decryptMessage(encryptKey, encryptedContent);
+                                            byte[] contentBytes = Base64.decode(content, Base64.DEFAULT);
+
+                                            Log.d(TAG, "onPayloadTransferUpdate: received chunk with number " + partNo + " of size " + partSize);
+
+                                            AudioPart filePart = new AudioPart(partNo, partSize, contentBytes);
+
+                                            if (!incomingAudioMessages.containsKey(messageId)) {
+                                                Log.d(TAG, "onPayloadTransferUpdate: this is the first chunk received for this audio");
+                                                AudioMessage audioMessage = new AudioMessage(
+                                                        messageId,
+                                                        messageJSON.getString(Constants.JSON_AUDIO_NAME),
+                                                        messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
+                                                        messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
+                                                        messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
+                                                        messageJSON.getInt(Constants.JSON_AUDIO_SIZE_KEY),
+                                                        messageJSON.getString(Constants.JSON_AUDIO_EXTENSION)
+                                                );
+
+                                                incomingAudioMessages.put(messageId, audioMessage);
+                                            }
+
+                                            long chunkTimestamp = messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY);
+
+                                            insertAudioPart(contact, messageId, filePart, payload.getId(), chunkTimestamp);
+                                            break;
+                                        }
                                     }
                                 } catch (IOException | JSONException e) {
                                     Log.d(TAG, "onPayloadTransferUpdate: an error occurred while receiving the image payload: " + e.getMessage());
@@ -589,6 +635,29 @@ public class BackgroundCommunicationService extends Service {
         }
     }
 
+    private void insertAudioPart(Contact contact, String messageId, AudioPart audioPart, long payloadId, long timestamp) {
+        AudioMessage audioMessage = incomingAudioMessages.get(messageId);
+
+        if (audioMessage != null && !audioMessage.getParts().contains(audioPart)) {
+            audioMessage.addPart(audioPart);
+            audioMessage.setPayloadId(payloadId);
+            audioMessage.setTimestamp(timestamp);
+
+            int currentSize = audioMessage.getCurrentSize();
+            int totalSize = audioMessage.getTotalSize();
+            Log.d(TAG, "insertAudioPart: current size is " + currentSize);
+
+            if (currentSize == totalSize) {
+                Log.d(TAG, "insertAudioPart: this chunk filled the file! Assembling and inserting it into the local storage...");
+
+                Utilities.saveAudioToDatabase(this, contact, audioMessage);
+                incomingAudioMessages.remove(messageId);
+            } else {
+                incomingAudioMessages.put(messageId, audioMessage);
+            }
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -597,6 +666,7 @@ public class BackgroundCommunicationService extends Service {
         incomingImageMessages = new HashMap<>();
         incomingFileMessages = new HashMap<>();
         incomingVideoMessages = new HashMap<>();
+        incomingAudioMessages = new HashMap<>();
         registerReceiver(batteryStatusReceiver, intentFilter);
 
         Log.d(TAG, "onCreate: service has been created");

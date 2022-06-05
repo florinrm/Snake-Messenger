@@ -18,6 +18,8 @@ import android.util.Log;
 import com.example.snakemessenger.MainActivity;
 import com.example.snakemessenger.chats.PreviewVideoActivity;
 import com.example.snakemessenger.crypto.CryptoManager;
+import com.example.snakemessenger.models.AudioMessage;
+import com.example.snakemessenger.models.AudioPart;
 import com.example.snakemessenger.models.Contact;
 import com.example.snakemessenger.models.FileMessage;
 import com.example.snakemessenger.models.FilePart;
@@ -263,6 +265,28 @@ public class Utilities {
         }
     }
 
+    public static void dispatchRecordAudioIntent(Context context) {
+        if (context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_DENIED) {
+            String[] permission = {Manifest.permission.READ_EXTERNAL_STORAGE};
+
+            ((Activity) context).requestPermissions(permission, Constants.REQUEST_AUDIO_CAPTURE);
+        } if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_DENIED) {
+            String[] permission = {Manifest.permission.RECORD_AUDIO};
+
+            ((Activity) context).requestPermissions(permission, Constants.REQUEST_AUDIO_CAPTURE);
+        } else {
+            Intent attachFileIntent = new Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION);
+
+            try {
+                ((Activity) context).startActivityForResult(attachFileIntent, Constants.REQUEST_AUDIO_CAPTURE);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     public static void saveImageToDatabase(Context context, Contact contact, ImageMessage imageMessage) {
         List<ImagePart> imageParts = imageMessage.getParts();
         Collections.sort(imageParts);
@@ -410,12 +434,12 @@ public class Utilities {
     }
 
     public static void saveVideoToDatabase(Context context, Contact contact, VideoMessage videoMessage) {
-        List<VideoPart> fileParts = videoMessage.getParts();
-        Collections.sort(fileParts);
+        List<VideoPart> audioParts = videoMessage.getParts();
+        Collections.sort(audioParts);
 
         ByteBuffer fileByteBuffer = ByteBuffer.allocate(videoMessage.getTotalSize());
 
-        for (VideoPart part : fileParts) {
+        for (VideoPart part : audioParts) {
             Log.d(TAG, "saveVideoToDatabase: adding chunk " + part.getPartNo());
             fileByteBuffer.put(part.getContent());
         }
@@ -495,6 +519,95 @@ public class Utilities {
             Log.d(TAG, "saveVideoToDatabase: the message is routing to another device");
 
             saveDataMemoryMessageToDatabase(messageJSON, videoMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+        }
+    }
+
+    public static void saveAudioToDatabase(Context context, Contact contact, AudioMessage audioMessage) {
+        List<AudioPart> audioParts = audioMessage.getParts();
+        Collections.sort(audioParts);
+
+        ByteBuffer fileByteBuffer = ByteBuffer.allocate(audioMessage.getTotalSize());
+
+        for (AudioPart part : audioParts) {
+            Log.d(TAG, "saveAudioToDatabase: adding chunk " + part.getPartNo());
+            fileByteBuffer.put(part.getContent());
+        }
+
+        byte[] fileBytes = fileByteBuffer.array();
+        Log.d(TAG, "saveAudioToDatabase: video byte array has size " + fileBytes.length);
+        String filename = audioMessage.getFileName();
+
+        String filePath = "";
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            String path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).toString();
+            File file = new File(path, filename);
+            filePath = file.getAbsolutePath();
+            try {
+                FileOutputStream stream = new FileOutputStream(file);
+                stream.write(fileBytes);
+                stream.close();
+            } catch (IOException e) {
+                Log.d(TAG, "saveAudioToDatabase: could not save file in storage. Error: " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+        } else {
+            try {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, audioMessage.getFileName());
+                values.put(MediaStore.MediaColumns.MIME_TYPE, audioMessage.getFileExtension());
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/SnakeMessenger/");
+
+                Uri uri = context.getContentResolver().insert(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL), values);
+                OutputStream stream = context.getContentResolver().openOutputStream(uri);
+                filePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).getAbsolutePath() + "/SnakeMessenger/" + filename;
+                stream.write(fileBytes);
+                stream.close();
+            } catch (IOException e) {
+                Log.d(TAG, "saveAudioToDatabase: could not save file in storage. Error: " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+        }
+
+        JSONObject messageJSON = new JSONObject();
+        db.getMediaMessageUriDao().addMediaMessageUri(new MediaMessageUri(
+                audioMessage.getMessageId(), filePath
+        ));
+
+        try {
+            String encryptionKey = CryptoManager.INSTANCE.generateKey();
+            String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, filePath);
+            messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, audioMessage.getMessageId());
+            messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, audioMessage.getSourceId());
+            messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, audioMessage.getDestinationId());
+            messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, audioMessage.getTimestamp());
+            messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_AUDIO);
+            messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
+            messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+            messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, audioMessage.getTotalSize());
+        } catch (JSONException e) {
+            Log.d(TAG, "saveAudioToDatabase: could not save video. Error: " + e.getMessage());
+            e.printStackTrace();
+            return;
+        }
+
+        String destinationId = audioMessage.getDestinationId();
+
+        if (destinationId.equals(myDeviceId)) {
+            Log.d(TAG, "saveAudioToDatabase: the message is for the current device");
+
+            Message receivedMessage = saveOwnMessageToDatabase(messageJSON, audioMessage.getPayloadId(), Constants.MESSAGE_STATUS_RECEIVED);
+
+            if (currentChat == null || !currentChat.equals(contact.getDeviceID())) {
+                NotificationHandler.sendMessageNotification(context, contact, receivedMessage);
+            }
+        } else {
+            Log.d(TAG, "saveAudioToDatabase: the message is routing to another device");
+
+            saveDataMemoryMessageToDatabase(messageJSON, audioMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
         }
     }
 }
