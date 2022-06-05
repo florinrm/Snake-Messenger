@@ -14,10 +14,13 @@ import android.webkit.MimeTypeMap;
 import android.widget.Toast;
 
 import com.example.snakemessenger.Utils;
+import com.example.snakemessenger.chats.PreviewVideoActivity;
 import com.example.snakemessenger.crypto.CryptoManager;
+import com.example.snakemessenger.database.AppDatabase;
 import com.example.snakemessenger.general.Constants;
 import com.example.snakemessenger.general.Utilities;
 import com.example.snakemessenger.models.Contact;
+import com.example.snakemessenger.models.MediaMessageUri;
 import com.example.snakemessenger.models.Message;
 import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.connection.Payload;
@@ -48,6 +51,10 @@ public class CommunicationManager {
         } else if (message.getContentType() == Constants.CONTENT_FILE && message.getTotalSize() > Constants.MAX_FILE_SIZE){
             Log.d(TAG, "deliverMessage: message contains an file that must be sent in chunks");
             deliverFileMessage(context, message, contact);
+            return;
+        } else if (message.getContentType() == Constants.CONTENT_VIDEO && message.getTotalSize() > Constants.MAX_FILE_SIZE){
+            Log.d(TAG, "deliverMessage: message contains an file that must be sent in chunks");
+            deliverVideoMessage(context, message, contact);
             return;
         }
 
@@ -162,6 +169,10 @@ public class CommunicationManager {
     }
 
     private static void deliverFileMessage(Context context, Message message, Contact contact) {
+        // TODO
+    }
+
+    private static void deliverVideoMessage(Context context, Message message, Contact contact) {
         // TODO
     }
 
@@ -386,7 +397,110 @@ public class CommunicationManager {
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (JSONException e) {
-            Log.d(TAG, "buildAndDeliverImageMessage: could not deliver image. Error: " + e.getMessage());
+            Log.d(TAG, "buildAndDeliverFileMessage: could not deliver video. Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static void buildAndDeliverVideoMessage(Context context, Uri videoUri, Contact contact) {
+        Log.d(TAG, "buildAndDeliverVideoMessage: building and sending video message to " + contact.getName());
+
+        InputStream stream;
+        try {
+            stream = context.getContentResolver().openInputStream(videoUri);
+            if (stream == null) {
+                Toast.makeText(context, "Cannot open video!", Toast.LENGTH_LONG).show();
+                return;
+            }
+            byte[] videoBytes = Utils.INSTANCE.convertInputStreamToByteArray(stream);
+            String messageId = UUID.randomUUID().toString();
+            long payloadId = 0;
+            long timestamp = System.currentTimeMillis();
+
+            String videoExtension = getFileExtension(context, videoUri);
+            String videoName = getFileName(context, videoUri);
+            Log.d(TAG, "VideoExtension: " + videoExtension);
+
+            Log.d(TAG, "buildAndDeliverVideoMessage: file size is " + videoBytes.length + " B");
+
+            for (int i = 0, count = 0; i < videoBytes.length; i += Constants.MAX_VIDEO_SIZE, count++) {
+                Log.d(TAG, "buildAndDeliverVideoMessage: sending chunk " + count + " of the video");
+
+                byte[] imageChunk = (videoBytes.length - i - 1) > Constants.MAX_VIDEO_SIZE ?
+                        new byte[Constants.MAX_VIDEO_SIZE] : new byte[videoBytes.length - i];
+                int lastIdx = i;
+
+                if ((videoBytes.length - i - 1) > Constants.MAX_VIDEO_SIZE) {
+                    lastIdx += Constants.MAX_VIDEO_SIZE;
+                } else {
+                    lastIdx += videoBytes.length - i;
+                }
+
+                if (lastIdx - i >= 0) {
+                    System.arraycopy(videoBytes, i, imageChunk, 0, lastIdx - i);
+                }
+
+                Log.d(TAG, "buildAndDeliverVideoMessage: chunk has size " + (lastIdx - i));
+
+                String chunkContent = Base64.encodeToString(imageChunk, Base64.DEFAULT);
+
+                JSONObject messageJSON = new JSONObject();
+
+                try {
+                    String encryptionKey = CryptoManager.INSTANCE.generateKey();
+                    String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, chunkContent);
+
+                    messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
+                    messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
+                    messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
+                    messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, timestamp);
+                    messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_VIDEO);
+                    messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
+                    messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+                    messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+                    messageJSON.put(Constants.JSON_VIDEO_PART_NO_KEY, count);
+                    messageJSON.put(Constants.JSON_VIDEO_PART_SIZE_KEY, lastIdx - i);
+                    messageJSON.put(Constants.JSON_VIDEO_SIZE_KEY, videoBytes.length);
+                    messageJSON.put(Constants.JSON_VIDEO_EXTENSION, videoExtension);
+                    messageJSON.put(Constants.JSON_VIDEO_NAME, videoName);
+
+                    InputStream messageStream = new ByteArrayInputStream(messageJSON.toString().getBytes());
+                    Payload messagePayload = Payload.fromStream(messageStream);
+                    Nearby.getConnectionsClient(context).sendPayload(contact.getEndpointID(), messagePayload);
+                    payloadId = messagePayload.getId();
+
+                    Log.d(TAG, "buildAndDeliverVideoMessage: sent video chunk with payload ID " + payloadId);
+                } catch (JSONException e) {
+                    Log.d(TAG, "buildAndDeliverVideoMessage: could not deliver message. Error: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+
+            JSONObject messageJSON = new JSONObject();
+            String encryptionKey = CryptoManager.INSTANCE.generateKey();
+            String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, videoName);
+
+            messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
+            messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
+            messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
+            messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, timestamp);
+            messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_VIDEO);
+            messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
+            messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+            messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, videoBytes.length);
+            messageJSON.put(Constants.JSON_VIDEO_EXTENSION, videoExtension);
+            messageJSON.put(Constants.JSON_VIDEO_NAME, videoName);
+
+            db.getMediaMessageUriDao().addMediaMessageUri(new MediaMessageUri(
+                    messageId, PreviewVideoActivity.videoURI.toString()
+            ));
+
+            Utilities.saveOwnMessageToDatabase(messageJSON, payloadId, Constants.MESSAGE_STATUS_SENT);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (JSONException e) {
+            Log.d(TAG, "buildAndDeliverVideoMessage: could not deliver video. Error: " + e.getMessage());
             e.printStackTrace();
         }
     }

@@ -65,6 +65,8 @@ class ChatsAdapter extends RecyclerView.Adapter<ChatItemViewHolder> {
             messageContent = "Sent a photo";
         } else if (lastMessage.getContentType() == Constants.CONTENT_FILE) {
             messageContent = "Sent a file";
+        } else if (lastMessage.getContentType() == Constants.CONTENT_VIDEO) {
+            messageContent = "Sent a video";
         } else {
             messageContent = lastMessage.getContent();
         }

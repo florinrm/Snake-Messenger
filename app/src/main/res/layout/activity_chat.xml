@@ -47,6 +47,14 @@
                 android:padding="4dp"
                 android:src="@drawable/ic_baseline_photo_camera_24"/>
             <ImageView
+                android:id="@+id/pick_video_btn"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_gravity="center"
+                android:backgroundTint="@color/colorPrimaryDark"
+                android:padding="4dp"
+                android:src="@drawable/ic_baseline_video_call_24"/>
+            <ImageView
                 android:id="@+id/pick_file_btn"
                 android:layout_width="50dp"
                 android:layout_height="50dp"

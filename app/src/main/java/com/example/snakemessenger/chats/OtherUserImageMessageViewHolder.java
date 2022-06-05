@@ -16,7 +16,6 @@ public class OtherUserImageMessageViewHolder extends RecyclerView.ViewHolder {
     private final TextView senderNameTextView;
     private final ImageView messageContentImageView;
     private final TextView timestampTextView;
-    private final ImageView messageStatusImageView;
 
     public OtherUserImageMessageViewHolder(@NonNull View itemView) {
         super(itemView);
@@ -25,7 +24,6 @@ public class OtherUserImageMessageViewHolder extends RecyclerView.ViewHolder {
         senderNameTextView = itemView.findViewById(R.id.sender_name);
         messageContentImageView = itemView.findViewById(R.id.message_content);
         timestampTextView = itemView.findViewById(R.id.message_timestamp);
-        messageStatusImageView = itemView.findViewById(R.id.message_status);
     }
 
     public CircleImageView getSenderProfilePictureImageView() {
@@ -42,9 +40,5 @@ public class OtherUserImageMessageViewHolder extends RecyclerView.ViewHolder {
 
     public TextView getTimestampTextView() {
         return timestampTextView;
-    }
-
-    public ImageView getMessageStatusImageView() {
-        return messageStatusImageView;
     }
 }

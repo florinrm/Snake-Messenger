@@ -50,6 +50,7 @@ public interface Constants {
     String TOAST_SIGNED_OUT = "Signed out";
 
     String EXTRA_IMAGE_CAPTURE_DATA = "data";
+    String EXTRA_VIDEO_CAPTURE_DATA = "video";
     String EXTRA_CONTACT_DEVICE_ID = "deviceId";
     String EXTRA_NOTIFICATION_ID = "notificationId";
 
@@ -87,8 +88,13 @@ public interface Constants {
     String JSON_FILE_SIZE_KEY = "fileSize";
     String JSON_FILE_PART_NO_KEY = "partNo";
     String JSON_FILE_PART_SIZE_KEY = "partSize";
+    String JSON_VIDEO_SIZE_KEY = "videoSize";
+    String JSON_VIDEO_PART_NO_KEY = "partNo";
+    String JSON_VIDEO_PART_SIZE_KEY = "partSize";
     String JSON_FILE_EXTENSION = "fileExtension";
     String JSON_FILE_NAME = "fileName";
+    String JSON_VIDEO_EXTENSION = "videoExtension";
+    String JSON_VIDEO_NAME = "videoName";
     String JSON_MESSAGE_TOTAL_SIZE = "totalSize";
     String JSON_ENCRYPTION_KEY = "encryptionKey";
 
@@ -110,6 +116,9 @@ public interface Constants {
     int REQUEST_EDIT_PROFILE = 444;
     int REQUEST_PERMISSIONS = 555;
     int REQUEST_ACCESS_FILE = 666;
+    int REQUEST_VIDEO_CAPTURE = 777;
+    int REQUEST_PREVIEW_VIDEO = 888;
+    int REQUEST_ACCESS_VIDEO_GALLERY = 999;
 
     int MESSAGE_TYPE_HELLO = 0;
     int MESSAGE_TYPE_MESSAGE = 1;
@@ -123,10 +132,12 @@ public interface Constants {
     int CONTENT_TEXT = 0;
     int CONTENT_IMAGE = 1;
     int CONTENT_FILE = 2;
+    int CONTENT_VIDEO = 3;
 
     int MAX_SEND_TIMES = 10;
     int MAX_IMAGE_SIZE = 25000;
     int MAX_FILE_SIZE = 25000;
+    int MAX_VIDEO_SIZE = 25000;
 
     int RECEIVED_TEXT_MESSAGE = 0;
     int RECEIVED_IMAGE_MESSAGE = 1;
@@ -134,4 +145,6 @@ public interface Constants {
     int SENT_TEXT_MESSAGE = 3;
     int SENT_IMAGE_MESSAGE = 4;
     int SENT_FILE_MESSAGE = 5;
+    int SENT_VIDEO_MESSAGE = 6;
+    int RECEIVED_VIDEO_MESSAGE = 7;
 }
