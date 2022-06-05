@@ -182,6 +182,9 @@ public class ChatActivity extends AppCompatActivity {
         ImageView cameraVideoView = findViewById(R.id.pick_video_btn);
         cameraVideoView.setOnClickListener(v -> Utilities.showVideoPickDialog(ChatActivity.this));
 
+        ImageView recordAudioView = findViewById(R.id.record_audio_btn);
+        recordAudioView.setOnClickListener(v -> Utilities.dispatchRecordAudioIntent(ChatActivity.this));
+
         ImageView attachFileView = findViewById(R.id.pick_file_btn);
         attachFileView.setOnClickListener(v -> Utilities.dispatchAttachFileIntent(ChatActivity.this));
 
@@ -296,7 +299,7 @@ public class ChatActivity extends AppCompatActivity {
                 Intent previewPictureIntent = new Intent(ChatActivity.this, PreviewPictureActivity.class);
                 startActivityForResult(previewPictureIntent, Constants.REQUEST_PREVIEW_PICTURE);
             }
-        }  else if (requestCode == Constants.REQUEST_VIDEO_CAPTURE && resultCode == RESULT_OK) {
+        } else if (requestCode == Constants.REQUEST_VIDEO_CAPTURE && resultCode == RESULT_OK) {
             Uri videoUri = data.getData();
 
             if (videoUri != null) {
@@ -319,16 +322,27 @@ public class ChatActivity extends AppCompatActivity {
 
             Intent previewPictureIntent = new Intent(ChatActivity.this, PreviewPictureActivity.class);
             startActivityForResult(previewPictureIntent, Constants.REQUEST_PREVIEW_PICTURE);
-        }  else if (requestCode == Constants.REQUEST_ACCESS_VIDEO_GALLERY && resultCode == RESULT_OK) {
+        } else if (requestCode == Constants.REQUEST_ACCESS_VIDEO_GALLERY && resultCode == RESULT_OK) {
             PreviewVideoActivity.videoURI = data.getData();
             Intent previewVideoIntent = new Intent(ChatActivity.this, PreviewVideoActivity.class);
             startActivityForResult(previewVideoIntent, Constants.REQUEST_PREVIEW_VIDEO);
-        }else if (requestCode == Constants.REQUEST_ACCESS_FILE && resultCode == RESULT_OK) {
+        } else if (requestCode == Constants.REQUEST_ACCESS_FILE && resultCode == RESULT_OK) {
             Uri fileUri = data.getData();
             Log.d(TAG, "File: " + fileUri.getPath());
 
             new Thread(() -> CommunicationManager.buildAndDeliverFileMessage(getApplicationContext(), fileUri, contact)).start();
             Toast.makeText(ChatActivity.this, "File sent!", Toast.LENGTH_SHORT).show();
+        } else if (requestCode == Constants.REQUEST_AUDIO_CAPTURE && resultCode == RESULT_OK) {
+            Uri audioURI = data.getData();
+
+            if (audioURI != null) {
+                PreviewAudioActivity.audioURI = audioURI;
+                Intent previewAudioIntent = new Intent(ChatActivity.this, PreviewAudioActivity.class);
+                startActivityForResult(previewAudioIntent, Constants.REQUEST_PREVIEW_AUDIO);
+            }
+        } else if (requestCode == Constants.REQUEST_PREVIEW_AUDIO && resultCode == Activity.RESULT_OK) {
+            new Thread(() -> CommunicationManager.buildAndDeliverAudioMessage(getApplicationContext(), PreviewAudioActivity.audioURI, contact)).start();
+            Toast.makeText(ChatActivity.this, "Audio sent!", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -367,6 +381,13 @@ public class ChatActivity extends AppCompatActivity {
             if (grantResults.length > 0
                     && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Utilities.dispatchPickVideoIntent(ChatActivity.this);
+            } else {
+                Toast.makeText(ChatActivity.this, Constants.TOAST_PERMISSION_DENIED, Toast.LENGTH_SHORT).show();
+            }
+        } else if (requestCode == Constants.REQUEST_AUDIO_CAPTURE) {
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Utilities.dispatchRecordAudioIntent(ChatActivity.this);
             } else {
                 Toast.makeText(ChatActivity.this, Constants.TOAST_PERMISSION_DENIED, Toast.LENGTH_SHORT).show();
             }

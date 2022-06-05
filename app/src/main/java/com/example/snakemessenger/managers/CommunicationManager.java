@@ -14,6 +14,7 @@ import android.webkit.MimeTypeMap;
 import android.widget.Toast;
 
 import com.example.snakemessenger.Utils;
+import com.example.snakemessenger.chats.PreviewAudioActivity;
 import com.example.snakemessenger.chats.PreviewVideoActivity;
 import com.example.snakemessenger.crypto.CryptoManager;
 import com.example.snakemessenger.database.AppDatabase;
@@ -52,9 +53,13 @@ public class CommunicationManager {
             Log.d(TAG, "deliverMessage: message contains an file that must be sent in chunks");
             deliverFileMessage(context, message, contact);
             return;
-        } else if (message.getContentType() == Constants.CONTENT_VIDEO && message.getTotalSize() > Constants.MAX_FILE_SIZE){
+        } else if (message.getContentType() == Constants.CONTENT_VIDEO && message.getTotalSize() > Constants.MAX_VIDEO_SIZE){
             Log.d(TAG, "deliverMessage: message contains an file that must be sent in chunks");
             deliverVideoMessage(context, message, contact);
+            return;
+        } else if (message.getContentType() == Constants.CONTENT_AUDIO && message.getTotalSize() > Constants.MAX_AUDIO_SIZE){
+            Log.d(TAG, "deliverMessage: message contains an file that must be sent in chunks");
+            deliverAudioMessage(context, message, contact);
             return;
         }
 
@@ -173,6 +178,10 @@ public class CommunicationManager {
     }
 
     private static void deliverVideoMessage(Context context, Message message, Contact contact) {
+        // TODO
+    }
+
+    private static void deliverAudioMessage(Context context, Message message, Contact contact) {
         // TODO
     }
 
@@ -501,6 +510,109 @@ public class CommunicationManager {
             e.printStackTrace();
         } catch (JSONException e) {
             Log.d(TAG, "buildAndDeliverVideoMessage: could not deliver video. Error: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static void buildAndDeliverAudioMessage(Context context, Uri audioUri, Contact contact) {
+        Log.d(TAG, "buildAndDeliverAudioMessage: building and sending audio message to " + contact.getName());
+
+        InputStream stream;
+        try {
+            stream = context.getContentResolver().openInputStream(audioUri);
+            if (stream == null) {
+                Toast.makeText(context, "Cannot open audio!", Toast.LENGTH_LONG).show();
+                return;
+            }
+            byte[] audioBytes = Utils.INSTANCE.convertInputStreamToByteArray(stream);
+            String messageId = UUID.randomUUID().toString();
+            long payloadId = 0;
+            long timestamp = System.currentTimeMillis();
+
+            String audioExtension = getFileExtension(context, audioUri);
+            String audioName = getFileName(context, audioUri);
+            Log.d(TAG, "AudioExtension: " + audioExtension);
+
+            Log.d(TAG, "buildAndDeliverAudioMessage: file size is " + audioBytes.length + " B");
+
+            for (int i = 0, count = 0; i < audioBytes.length; i += Constants.MAX_AUDIO_SIZE, count++) {
+                Log.d(TAG, "buildAndDeliverAudioMessage: sending chunk " + count + " of the video");
+
+                byte[] imageChunk = (audioBytes.length - i - 1) > Constants.MAX_AUDIO_SIZE ?
+                        new byte[Constants.MAX_VIDEO_SIZE] : new byte[audioBytes.length - i];
+                int lastIdx = i;
+
+                if ((audioBytes.length - i - 1) > Constants.MAX_AUDIO_SIZE) {
+                    lastIdx += Constants.MAX_AUDIO_SIZE;
+                } else {
+                    lastIdx += audioBytes.length - i;
+                }
+
+                if (lastIdx - i >= 0) {
+                    System.arraycopy(audioBytes, i, imageChunk, 0, lastIdx - i);
+                }
+
+                Log.d(TAG, "buildAndDeliverAudioMessage: chunk has size " + (lastIdx - i));
+
+                String chunkContent = Base64.encodeToString(imageChunk, Base64.DEFAULT);
+
+                JSONObject messageJSON = new JSONObject();
+
+                try {
+                    String encryptionKey = CryptoManager.INSTANCE.generateKey();
+                    String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, chunkContent);
+
+                    messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
+                    messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
+                    messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
+                    messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, timestamp);
+                    messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_AUDIO);
+                    messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
+                    messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+                    messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+                    messageJSON.put(Constants.JSON_AUDIO_PART_NO_KEY, count);
+                    messageJSON.put(Constants.JSON_AUDIO_PART_SIZE_KEY, lastIdx - i);
+                    messageJSON.put(Constants.JSON_AUDIO_SIZE_KEY, audioBytes.length);
+                    messageJSON.put(Constants.JSON_AUDIO_EXTENSION, audioExtension);
+                    messageJSON.put(Constants.JSON_AUDIO_NAME, audioName);
+
+                    InputStream messageStream = new ByteArrayInputStream(messageJSON.toString().getBytes());
+                    Payload messagePayload = Payload.fromStream(messageStream);
+                    Nearby.getConnectionsClient(context).sendPayload(contact.getEndpointID(), messagePayload);
+                    payloadId = messagePayload.getId();
+
+                    Log.d(TAG, "buildAndDeliverAudioMessage: sent video chunk with payload ID " + payloadId);
+                } catch (JSONException e) {
+                    Log.d(TAG, "buildAndDeliverAudioMessage: could not deliver message. Error: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+
+            JSONObject messageJSON = new JSONObject();
+            String encryptionKey = CryptoManager.INSTANCE.generateKey();
+            String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, audioName);
+
+            messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
+            messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
+            messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
+            messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, timestamp);
+            messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_AUDIO);
+            messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
+            messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+            messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, audioBytes.length);
+            messageJSON.put(Constants.JSON_AUDIO_EXTENSION, audioExtension);
+            messageJSON.put(Constants.JSON_AUDIO_NAME, audioName);
+
+            db.getMediaMessageUriDao().addMediaMessageUri(new MediaMessageUri(
+                    messageId, PreviewAudioActivity.audioURI.toString()
+            ));
+
+            Utilities.saveOwnMessageToDatabase(messageJSON, payloadId, Constants.MESSAGE_STATUS_SENT);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (JSONException e) {
+            Log.d(TAG, "buildAndDeliverAudioMessage: could not deliver audio. Error: " + e.getMessage());
             e.printStackTrace();
         }
     }
