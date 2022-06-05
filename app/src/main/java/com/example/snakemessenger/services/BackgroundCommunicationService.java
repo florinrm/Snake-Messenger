@@ -30,6 +30,8 @@ import com.example.snakemessenger.models.FilePart;
 import com.example.snakemessenger.models.ImageMessage;
 import com.example.snakemessenger.models.ImagePart;
 import com.example.snakemessenger.models.Message;
+import com.example.snakemessenger.models.VideoMessage;
+import com.example.snakemessenger.models.VideoPart;
 import com.example.snakemessenger.notifications.NotificationHandler;
 import com.google.android.gms.common.util.IOUtils;
 import com.google.android.gms.nearby.Nearby;
@@ -68,6 +70,7 @@ public class BackgroundCommunicationService extends Service {
     public static boolean running = false;
     private Map<String, ImageMessage> incomingImageMessages;
     private Map<String, FileMessage> incomingFileMessages;
+    private Map<String, VideoMessage> incomingVideoMessages;
 
     private final BatteryStatusReceiver batteryStatusReceiver = new BatteryStatusReceiver();
     private class BatteryStatusReceiver extends BroadcastReceiver {
@@ -326,6 +329,8 @@ public class BackgroundCommunicationService extends Service {
                                         Log.d(TAG, "onPayloadTransferUpdate: received an image");
                                     } else if (message.getContentType() == Constants.CONTENT_FILE) {
                                         Log.d(TAG, "onPayloadTransferUpdate: received a file");
+                                    } else if (message.getContentType() == Constants.CONTENT_VIDEO) {
+                                        Log.d(TAG, "onPayloadTransferUpdate: received a video");
                                     }
                                 }
 
@@ -420,6 +425,47 @@ public class BackgroundCommunicationService extends Service {
                                             long chunkTimestamp = messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY);
 
                                             insertFilePart(contact, messageId, filePart, payload.getId(), chunkTimestamp);
+                                            break;
+                                        }
+                                    } else if (messageJSON.getInt(Constants.JSON_CONTENT_TYPE_KEY) == Constants.CONTENT_VIDEO) {
+                                        long videoSize = messageJSON.getLong(Constants.JSON_VIDEO_SIZE_KEY);
+
+                                        Log.d(TAG, "onPayloadTransferUpdate: the video's total size is " + videoSize);
+
+                                        if (videoSize > Constants.MAX_VIDEO_SIZE) {
+                                            Log.d(TAG, "onPayloadTransferUpdate: the videos's size exceeds the maximum allowed size of one message!");
+
+                                            String messageId = messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY);
+
+                                            int partNo = messageJSON.getInt(Constants.JSON_VIDEO_PART_NO_KEY);
+                                            int partSize = messageJSON.getInt(Constants.JSON_VIDEO_PART_SIZE_KEY);
+                                            String encryptedContent = messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY);
+                                            String encryptKey = messageJSON.getString(Constants.JSON_ENCRYPTION_KEY);
+                                            String content = CryptoManager.INSTANCE.decryptMessage(encryptKey, encryptedContent);
+                                            byte[] contentBytes = Base64.decode(content, Base64.DEFAULT);
+
+                                            Log.d(TAG, "onPayloadTransferUpdate: received chunk with number " + partNo + " of size " + partSize);
+
+                                            VideoPart filePart = new VideoPart(partNo, partSize, contentBytes);
+
+                                            if (!incomingVideoMessages.containsKey(messageId)) {
+                                                Log.d(TAG, "onPayloadTransferUpdate: this is the first chunk received for this video");
+                                                VideoMessage videoMessage = new VideoMessage(
+                                                        messageId,
+                                                        messageJSON.getString(Constants.JSON_VIDEO_NAME),
+                                                        messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
+                                                        messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
+                                                        messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
+                                                        messageJSON.getInt(Constants.JSON_VIDEO_SIZE_KEY),
+                                                        messageJSON.getString(Constants.JSON_VIDEO_EXTENSION)
+                                                );
+
+                                                incomingVideoMessages.put(messageId, videoMessage);
+                                            }
+
+                                            long chunkTimestamp = messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY);
+
+                                            insertVideoPart(contact, messageId, filePart, payload.getId(), chunkTimestamp);
                                             break;
                                         }
                                     }
@@ -520,6 +566,29 @@ public class BackgroundCommunicationService extends Service {
         }
     }
 
+    private void insertVideoPart(Contact contact, String messageId, VideoPart videoPart, long payloadId, long timestamp) {
+        VideoMessage videoMessage = incomingVideoMessages.get(messageId);
+
+        if (videoMessage != null && !videoMessage.getParts().contains(videoPart)) {
+            videoMessage.addPart(videoPart);
+            videoMessage.setPayloadId(payloadId);
+            videoMessage.setTimestamp(timestamp);
+
+            int currentSize = videoMessage.getCurrentSize();
+            int totalSize = videoMessage.getTotalSize();
+            Log.d(TAG, "insertVideoPart: current size is " + currentSize);
+
+            if (currentSize == totalSize) {
+                Log.d(TAG, "insertVideoPart: this chunk filled the file! Assembling and inserting it into the local storage...");
+
+                Utilities.saveVideoToDatabase(this, contact, videoMessage);
+                incomingVideoMessages.remove(messageId);
+            } else {
+                incomingVideoMessages.put(messageId, videoMessage);
+            }
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -527,6 +596,7 @@ public class BackgroundCommunicationService extends Service {
         pendingConnectionsData = new HashMap<>();
         incomingImageMessages = new HashMap<>();
         incomingFileMessages = new HashMap<>();
+        incomingVideoMessages = new HashMap<>();
         registerReceiver(batteryStatusReceiver, intentFilter);
 
         Log.d(TAG, "onCreate: service has been created");

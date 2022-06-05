@@ -16,14 +16,18 @@ import android.provider.MediaStore;
 import android.util.Log;
 
 import com.example.snakemessenger.MainActivity;
+import com.example.snakemessenger.chats.PreviewVideoActivity;
 import com.example.snakemessenger.crypto.CryptoManager;
 import com.example.snakemessenger.models.Contact;
 import com.example.snakemessenger.models.FileMessage;
 import com.example.snakemessenger.models.FilePart;
 import com.example.snakemessenger.models.ImageMessage;
 import com.example.snakemessenger.models.ImagePart;
+import com.example.snakemessenger.models.MediaMessageUri;
 import com.example.snakemessenger.models.Message;
 import com.example.snakemessenger.models.MessageExchangeLog;
+import com.example.snakemessenger.models.VideoMessage;
+import com.example.snakemessenger.models.VideoPart;
 import com.example.snakemessenger.notifications.NotificationHandler;
 
 import org.json.JSONException;
@@ -169,6 +173,38 @@ public class Utilities {
                 .show();
     }
 
+    public static void showVideoPickDialog(Context context) {
+        String[] options = {Constants.OPTION_CAMERA, Constants.OPTION_GALLERY};
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle(Constants.PICK_PICTURE_TEXT)
+                .setItems(options, (dialogInterface, i) -> {
+                    switch (i) {
+                        case 0:
+                            if (((Activity) context).checkSelfPermission(Manifest.permission.CAMERA) ==
+                                    PackageManager.PERMISSION_DENIED) {
+                                String[] permission = {Manifest.permission.CAMERA};
+
+                                ((Activity) context).requestPermissions(permission, Constants.REQUEST_VIDEO_CAPTURE);
+                            } else {
+                                Utilities.dispatchTakeVideoIntent(context);
+                            }
+
+                            break;
+
+                        case 1:
+                            if (context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                                    PackageManager.PERMISSION_DENIED) {
+                                String[] permission = {Manifest.permission.READ_EXTERNAL_STORAGE};
+
+                                ((Activity) context).requestPermissions(permission, Constants.REQUEST_ACCESS_GALLERY);
+                            } else {
+                                Utilities.dispatchPickVideoIntent(context);
+                            }
+                    }
+                })
+                .show();
+    }
+
     public static void dispatchAttachFileIntent(Context context) {
         if (context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ==
                 PackageManager.PERMISSION_DENIED) {
@@ -197,11 +233,31 @@ public class Utilities {
         }
     }
 
+    public static void dispatchTakeVideoIntent(Context context) {
+        Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+
+        try {
+            ((Activity) context).startActivityForResult(takeVideoIntent, Constants.REQUEST_VIDEO_CAPTURE);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void dispatchPickPictureIntent(Context context) {
         Intent pickPictureIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 
         try {
             ((Activity) context).startActivityForResult(pickPictureIntent, Constants.REQUEST_ACCESS_GALLERY);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void dispatchPickVideoIntent(Context context) {
+        Intent pickVideoIntent = new Intent(Intent.ACTION_PICK, MediaStore.Video.Media.EXTERNAL_CONTENT_URI);
+
+        try {
+            ((Activity) context).startActivityForResult(pickVideoIntent, Constants.REQUEST_ACCESS_VIDEO_GALLERY);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -350,6 +406,95 @@ public class Utilities {
             Log.d(TAG, "saveFileToDatabase: the message is routing to another device");
 
             saveDataMemoryMessageToDatabase(messageJSON, fileMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+        }
+    }
+
+    public static void saveVideoToDatabase(Context context, Contact contact, VideoMessage videoMessage) {
+        List<VideoPart> fileParts = videoMessage.getParts();
+        Collections.sort(fileParts);
+
+        ByteBuffer fileByteBuffer = ByteBuffer.allocate(videoMessage.getTotalSize());
+
+        for (VideoPart part : fileParts) {
+            Log.d(TAG, "saveVideoToDatabase: adding chunk " + part.getPartNo());
+            fileByteBuffer.put(part.getContent());
+        }
+
+        byte[] fileBytes = fileByteBuffer.array();
+        Log.d(TAG, "saveVideoToDatabase: video byte array has size " + fileBytes.length);
+        String filename = videoMessage.getFileName();
+
+        String filePath = "";
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            String path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).toString();
+            File file = new File(path, filename);
+            filePath = file.getAbsolutePath();
+            try {
+                FileOutputStream stream = new FileOutputStream(file);
+                stream.write(fileBytes);
+                stream.close();
+            } catch (IOException e) {
+                Log.d(TAG, "saveVideoToDatabase: could not save file in storage. Error: " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+        } else {
+            try {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, videoMessage.getFileName());
+                values.put(MediaStore.MediaColumns.MIME_TYPE, videoMessage.getFileExtension());
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/SnakeMessenger/");
+
+                Uri uri = context.getContentResolver().insert(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL), values);
+                OutputStream stream = context.getContentResolver().openOutputStream(uri);
+                filePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).getAbsolutePath() + "/SnakeMessenger/" + filename;
+                stream.write(fileBytes);
+                stream.close();
+            } catch (IOException e) {
+                Log.d(TAG, "saveVideoToDatabase: could not save file in storage. Error: " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+        }
+
+        JSONObject messageJSON = new JSONObject();
+        db.getMediaMessageUriDao().addMediaMessageUri(new MediaMessageUri(
+                videoMessage.getMessageId(), filePath
+        ));
+
+        try {
+            String encryptionKey = CryptoManager.INSTANCE.generateKey();
+            String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, filePath);
+            messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, videoMessage.getMessageId());
+            messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, videoMessage.getSourceId());
+            messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, videoMessage.getDestinationId());
+            messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, videoMessage.getTimestamp());
+            messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_VIDEO);
+            messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
+            messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+            messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, videoMessage.getTotalSize());
+        } catch (JSONException e) {
+            Log.d(TAG, "saveVideoToDatabase: could not save video. Error: " + e.getMessage());
+            e.printStackTrace();
+            return;
+        }
+
+        String destinationId = videoMessage.getDestinationId();
+
+        if (destinationId.equals(myDeviceId)) {
+            Log.d(TAG, "saveVideoToDatabase: the message is for the current device");
+
+            Message receivedMessage = saveOwnMessageToDatabase(messageJSON, videoMessage.getPayloadId(), Constants.MESSAGE_STATUS_RECEIVED);
+
+            if (currentChat == null || !currentChat.equals(contact.getDeviceID())) {
+                NotificationHandler.sendMessageNotification(context, contact, receivedMessage);
+            }
+        } else {
+            Log.d(TAG, "saveVideoToDatabase: the message is routing to another device");
+
+            saveDataMemoryMessageToDatabase(messageJSON, videoMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
         }
     }
 }

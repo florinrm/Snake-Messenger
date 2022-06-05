@@ -7,7 +7,7 @@
     android:background="@color/colorBlack"
     tools:context=".chats.PreviewVideoActivity">
     <VideoView
-        android:id="@+id/picture_image_view"
+        android:id="@+id/video_image_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_centerVertical="true"/>

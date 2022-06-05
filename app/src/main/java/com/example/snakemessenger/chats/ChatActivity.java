@@ -179,10 +179,13 @@ public class ChatActivity extends AppCompatActivity {
         ImageView cameraImageView = findViewById(R.id.pick_picture_btn);
         cameraImageView.setOnClickListener(v -> Utilities.showImagePickDialog(ChatActivity.this));
 
+        ImageView cameraVideoView = findViewById(R.id.pick_video_btn);
+        cameraVideoView.setOnClickListener(v -> Utilities.showVideoPickDialog(ChatActivity.this));
+
         ImageView attachFileView = findViewById(R.id.pick_file_btn);
         attachFileView.setOnClickListener(v -> Utilities.dispatchAttachFileIntent(ChatActivity.this));
-        emojiImageView = findViewById(R.id.pick_emoji_btn);
 
+        emojiImageView = findViewById(R.id.pick_emoji_btn);
         userMessageInput = findViewById(R.id.input_message);
 
         ImageView sendMessageButton = findViewById(R.id.send_message_btn);
@@ -281,6 +284,9 @@ public class ChatActivity extends AppCompatActivity {
                 imagePath = null;
             }).start();
             Toast.makeText(ChatActivity.this, "Picture sent!", Toast.LENGTH_SHORT).show();
+        } else if (requestCode == Constants.REQUEST_PREVIEW_VIDEO && resultCode == Activity.RESULT_OK) {
+            new Thread(() -> CommunicationManager.buildAndDeliverVideoMessage(getApplicationContext(), PreviewVideoActivity.videoURI, contact)).start();
+            Toast.makeText(ChatActivity.this, "Video sent!", Toast.LENGTH_SHORT).show();
         } else if (requestCode == Constants.REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
             Bundle extras = data.getExtras();
 
@@ -289,6 +295,14 @@ public class ChatActivity extends AppCompatActivity {
 
                 Intent previewPictureIntent = new Intent(ChatActivity.this, PreviewPictureActivity.class);
                 startActivityForResult(previewPictureIntent, Constants.REQUEST_PREVIEW_PICTURE);
+            }
+        }  else if (requestCode == Constants.REQUEST_VIDEO_CAPTURE && resultCode == RESULT_OK) {
+            Uri videoUri = data.getData();
+
+            if (videoUri != null) {
+                PreviewVideoActivity.videoURI = videoUri;
+                Intent previewVideoIntent = new Intent(ChatActivity.this, PreviewVideoActivity.class);
+                startActivityForResult(previewVideoIntent, Constants.REQUEST_PREVIEW_VIDEO);
             }
         } else if (requestCode == Constants.REQUEST_ACCESS_GALLERY && resultCode == RESULT_OK) {
             Uri imageUri = data.getData();
@@ -305,7 +319,11 @@ public class ChatActivity extends AppCompatActivity {
 
             Intent previewPictureIntent = new Intent(ChatActivity.this, PreviewPictureActivity.class);
             startActivityForResult(previewPictureIntent, Constants.REQUEST_PREVIEW_PICTURE);
-        } else if (requestCode == Constants.REQUEST_ACCESS_FILE && resultCode == RESULT_OK) {
+        }  else if (requestCode == Constants.REQUEST_ACCESS_VIDEO_GALLERY && resultCode == RESULT_OK) {
+            PreviewVideoActivity.videoURI = data.getData();
+            Intent previewVideoIntent = new Intent(ChatActivity.this, PreviewVideoActivity.class);
+            startActivityForResult(previewVideoIntent, Constants.REQUEST_PREVIEW_VIDEO);
+        }else if (requestCode == Constants.REQUEST_ACCESS_FILE && resultCode == RESULT_OK) {
             Uri fileUri = data.getData();
             Log.d(TAG, "File: " + fileUri.getPath());
 
@@ -335,6 +353,20 @@ public class ChatActivity extends AppCompatActivity {
             if (grantResults.length > 0
                     && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Utilities.dispatchAttachFileIntent(ChatActivity.this);
+            } else {
+                Toast.makeText(ChatActivity.this, Constants.TOAST_PERMISSION_DENIED, Toast.LENGTH_SHORT).show();
+            }
+        } else if (requestCode == Constants.REQUEST_VIDEO_CAPTURE) {
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Utilities.dispatchTakeVideoIntent(ChatActivity.this);
+            } else {
+                Toast.makeText(ChatActivity.this, Constants.TOAST_PERMISSION_DENIED, Toast.LENGTH_SHORT).show();
+            }
+        } else if (requestCode == Constants.REQUEST_ACCESS_VIDEO_GALLERY) {
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Utilities.dispatchPickVideoIntent(ChatActivity.this);
             } else {
                 Toast.makeText(ChatActivity.this, Constants.TOAST_PERMISSION_DENIED, Toast.LENGTH_SHORT).show();
             }
