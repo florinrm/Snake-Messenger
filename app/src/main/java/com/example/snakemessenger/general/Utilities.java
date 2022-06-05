@@ -263,6 +263,28 @@ public class Utilities {
         }
     }
 
+    public static void dispatchRecordAudioIntent(Context context) {
+        if (context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_DENIED) {
+            String[] permission = {Manifest.permission.READ_EXTERNAL_STORAGE};
+
+            ((Activity) context).requestPermissions(permission, Constants.REQUEST_AUDIO_CAPTURE);
+        } if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_DENIED) {
+            String[] permission = {Manifest.permission.RECORD_AUDIO};
+
+            ((Activity) context).requestPermissions(permission, Constants.REQUEST_AUDIO_CAPTURE);
+        } else {
+            Intent attachFileIntent = new Intent(MediaStore.Audio.Media.RECORD_SOUND_ACTION);
+
+            try {
+                ((Activity) context).startActivityForResult(attachFileIntent, Constants.REQUEST_AUDIO_CAPTURE);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     public static void saveImageToDatabase(Context context, Contact contact, ImageMessage imageMessage) {
         List<ImagePart> imageParts = imageMessage.getParts();
         Collections.sort(imageParts);

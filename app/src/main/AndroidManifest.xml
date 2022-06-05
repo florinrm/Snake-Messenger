@@ -28,6 +28,7 @@
         android:roundIcon="@mipmap/snake_logo_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <activity android:name=".chats.PreviewAudioActivity"></activity>
         <activity android:name=".logging.LogsActivity" />
         <activity android:name=".chats.PreviewVideoActivity" />
         <activity android:name=".chats.PreviewPictureActivity" />

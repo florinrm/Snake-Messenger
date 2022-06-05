@@ -63,6 +63,14 @@
                 android:padding="4dp"
                 android:src="@drawable/ic_baseline_attachment_24"/>
             <ImageView
+                android:id="@+id/record_audio_btn"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_gravity="center"
+                android:backgroundTint="@color/colorPrimaryDark"
+                android:padding="4dp"
+                android:src="@drawable/ic_baseline_record_voice_over_24"/>
+            <ImageView
                 android:id="@+id/pick_emoji_btn"
                 android:layout_width="50dp"
                 android:layout_height="50dp"

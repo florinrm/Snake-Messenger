@@ -97,6 +97,11 @@ public interface Constants {
     String JSON_VIDEO_NAME = "videoName";
     String JSON_MESSAGE_TOTAL_SIZE = "totalSize";
     String JSON_ENCRYPTION_KEY = "encryptionKey";
+    String JSON_AUDIO_SIZE_KEY = "audioSize";
+    String JSON_AUDIO_PART_NO_KEY = "partNo";
+    String JSON_AUDIO_PART_SIZE_KEY = "partSize";
+    String JSON_AUDIO_EXTENSION = "audioExtension";
+    String JSON_AUDIO_NAME = "audioName";
 
     String[] REQUIRED_PERMISSIONS =
             new String[] {
@@ -119,6 +124,8 @@ public interface Constants {
     int REQUEST_VIDEO_CAPTURE = 777;
     int REQUEST_PREVIEW_VIDEO = 888;
     int REQUEST_ACCESS_VIDEO_GALLERY = 999;
+    int REQUEST_AUDIO_CAPTURE = 1111;
+    int REQUEST_PREVIEW_AUDIO = 2222;
 
     int MESSAGE_TYPE_HELLO = 0;
     int MESSAGE_TYPE_MESSAGE = 1;
@@ -133,11 +140,13 @@ public interface Constants {
     int CONTENT_IMAGE = 1;
     int CONTENT_FILE = 2;
     int CONTENT_VIDEO = 3;
+    int CONTENT_AUDIO = 4;
 
     int MAX_SEND_TIMES = 10;
     int MAX_IMAGE_SIZE = 25000;
     int MAX_FILE_SIZE = 25000;
     int MAX_VIDEO_SIZE = 25000;
+    int MAX_AUDIO_SIZE = 25000;
 
     int RECEIVED_TEXT_MESSAGE = 0;
     int RECEIVED_IMAGE_MESSAGE = 1;
@@ -147,4 +156,6 @@ public interface Constants {
     int SENT_FILE_MESSAGE = 5;
     int SENT_VIDEO_MESSAGE = 6;
     int RECEIVED_VIDEO_MESSAGE = 7;
+    int SENT_AUDIO_MESSAGE = 8;
+    int RECEIVED_AUDIO_MESSAGE = 9;
 }
