@@ -16,4 +16,6 @@ data class MessageExchangeLog(
         val sourceTimestamp: Long,
         @ColumnInfo(name = "destinationTimestamp")
         val destinationTimestamp: Long,
+        @ColumnInfo(name = "routingNodes")
+        val routingNodes: String,
 )

@@ -68,17 +68,25 @@ public class CommunicationManager {
         JSONObject messageJSON = new JSONObject();
 
         try {
-            String encryptionKey = CryptoManager.INSTANCE.generateKey();
-            String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, message.getContent());
-
+            if (message.isEncrypted()) {
+                messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, message.getContent());
+                messageJSON.put(Constants.JSON_ENCRYPTION_KEY, message.getEncryptionKey());
+            } else {
+                String encryptionKey = CryptoManager.INSTANCE.generateKey();
+                String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, message.getContent());
+                messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+                messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
+                messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
+                message.setEncrypted(true);
+                message.setEncryptionKey(encryptionKey);
+                messageJSON.put(Constants.JSON_IS_ENCRYPTED, message.isEncrypted());
+            }
             messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, message.getMessageId());
             messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, message.getSource());
             messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, message.getDestination());
             messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, message.getTimestamp());
             messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, message.getContentType());
             messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, message.getType());
-            messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
-            messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, message.getContent().length());
 
             Payload messagePayload = Payload.fromBytes(messageJSON.toString().getBytes());
@@ -153,6 +161,7 @@ public class CommunicationManager {
                 messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, message.getContentType());
                 messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, message.getType());
                 messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+                messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
                 messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
                 messageJSON.put(Constants.JSON_IMAGE_PART_NO_KEY, count);
                 messageJSON.put(Constants.JSON_IMAGE_PART_SIZE_KEY, lastIdx - i);
@@ -174,7 +183,9 @@ public class CommunicationManager {
     }
 
     private static void deliverFileMessage(Context context, Message message, Contact contact) {
-        // TODO
+        long payloadId = 0;
+        message.setPayloadId(payloadId);
+        db.getMessageDao().updateMessage(message);
     }
 
     private static void deliverVideoMessage(Context context, Message message, Contact contact) {
@@ -193,6 +204,7 @@ public class CommunicationManager {
             String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, messageContent);
 
             messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, UUID.randomUUID().toString());
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
             messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
             messageJSON.put(Constants.JSON_MESSAGE_TIMESTAMP_KEY, System.currentTimeMillis());
@@ -200,7 +212,9 @@ public class CommunicationManager {
             messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
             messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, messageContent.length());
+            messageJSON.put(Constants.JSON_ROUTING_NODES, "");
 
             Payload messagePayload = Payload.fromBytes(messageJSON.toString().getBytes());
             Nearby.getConnectionsClient(context).sendPayload(contact.getEndpointID(), messagePayload);
@@ -265,6 +279,7 @@ public class CommunicationManager {
                 String encryptionKey = CryptoManager.INSTANCE.generateKey();
                 String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, chunkContent);
 
+                messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
                 messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
                 messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
                 messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
@@ -272,10 +287,12 @@ public class CommunicationManager {
                 messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_IMAGE);
                 messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
                 messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+                messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
                 messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
                 messageJSON.put(Constants.JSON_IMAGE_PART_NO_KEY, count);
                 messageJSON.put(Constants.JSON_IMAGE_PART_SIZE_KEY, lastIdx - i);
                 messageJSON.put(Constants.JSON_IMAGE_SIZE_KEY, imageBytes.length);
+                messageJSON.put(Constants.JSON_ROUTING_NODES, "");
 
                 InputStream messageStream = new ByteArrayInputStream(messageJSON.toString().getBytes());
                 Payload messagePayload = Payload.fromStream(messageStream);
@@ -295,6 +312,7 @@ public class CommunicationManager {
             String encryptionKey = CryptoManager.INSTANCE.generateKey();
             String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, imagePath);
 
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
             messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
             messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
@@ -302,8 +320,10 @@ public class CommunicationManager {
             messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_IMAGE);
             messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
             messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, imageBytes.length);
+            messageJSON.put(Constants.JSON_ROUTING_NODES, "");
 
             Utilities.saveOwnMessageToDatabase(messageJSON, payloadId, Constants.MESSAGE_STATUS_SENT);
         } catch (JSONException e) {
@@ -360,6 +380,7 @@ public class CommunicationManager {
                     String encryptionKey = CryptoManager.INSTANCE.generateKey();
                     String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, chunkContent);
 
+                    messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
                     messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
                     messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
                     messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
@@ -367,12 +388,14 @@ public class CommunicationManager {
                     messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_FILE);
                     messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
                     messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+                    messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
                     messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
                     messageJSON.put(Constants.JSON_FILE_PART_NO_KEY, count);
                     messageJSON.put(Constants.JSON_FILE_PART_SIZE_KEY, lastIdx - i);
                     messageJSON.put(Constants.JSON_FILE_SIZE_KEY, fileBytes.length);
                     messageJSON.put(Constants.JSON_FILE_EXTENSION, fileExtension);
                     messageJSON.put(Constants.JSON_FILE_NAME, fileName);
+                    messageJSON.put(Constants.JSON_ROUTING_NODES, "");
 
                     InputStream messageStream = new ByteArrayInputStream(messageJSON.toString().getBytes());
                     Payload messagePayload = Payload.fromStream(messageStream);
@@ -390,6 +413,7 @@ public class CommunicationManager {
             String encryptionKey = CryptoManager.INSTANCE.generateKey();
             String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, fileName);
 
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
             messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
             messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
@@ -397,10 +421,12 @@ public class CommunicationManager {
             messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_FILE);
             messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
             messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, fileBytes.length);
             messageJSON.put(Constants.JSON_FILE_EXTENSION, fileExtension);
             messageJSON.put(Constants.JSON_FILE_NAME, fileName);
+            messageJSON.put(Constants.JSON_ROUTING_NODES, "");
 
             Utilities.saveOwnMessageToDatabase(messageJSON, payloadId, Constants.MESSAGE_STATUS_SENT);
         } catch (FileNotFoundException e) {
@@ -459,6 +485,7 @@ public class CommunicationManager {
                     String encryptionKey = CryptoManager.INSTANCE.generateKey();
                     String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, chunkContent);
 
+                    messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
                     messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
                     messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
                     messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
@@ -466,12 +493,14 @@ public class CommunicationManager {
                     messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_VIDEO);
                     messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
                     messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+                    messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
                     messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
                     messageJSON.put(Constants.JSON_VIDEO_PART_NO_KEY, count);
                     messageJSON.put(Constants.JSON_VIDEO_PART_SIZE_KEY, lastIdx - i);
                     messageJSON.put(Constants.JSON_VIDEO_SIZE_KEY, videoBytes.length);
                     messageJSON.put(Constants.JSON_VIDEO_EXTENSION, videoExtension);
                     messageJSON.put(Constants.JSON_VIDEO_NAME, videoName);
+                    messageJSON.put(Constants.JSON_ROUTING_NODES, "");
 
                     InputStream messageStream = new ByteArrayInputStream(messageJSON.toString().getBytes());
                     Payload messagePayload = Payload.fromStream(messageStream);
@@ -489,6 +518,7 @@ public class CommunicationManager {
             String encryptionKey = CryptoManager.INSTANCE.generateKey();
             String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, videoName);
 
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
             messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
             messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
@@ -496,10 +526,12 @@ public class CommunicationManager {
             messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_VIDEO);
             messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
             messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, videoBytes.length);
             messageJSON.put(Constants.JSON_VIDEO_EXTENSION, videoExtension);
             messageJSON.put(Constants.JSON_VIDEO_NAME, videoName);
+            messageJSON.put(Constants.JSON_ROUTING_NODES, "");
 
             db.getMediaMessageUriDao().addMediaMessageUri(new MediaMessageUri(
                     messageId, PreviewVideoActivity.videoURI.toString()
@@ -562,6 +594,7 @@ public class CommunicationManager {
                     String encryptionKey = CryptoManager.INSTANCE.generateKey();
                     String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, chunkContent);
 
+                    messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
                     messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
                     messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
                     messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
@@ -569,12 +602,14 @@ public class CommunicationManager {
                     messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_AUDIO);
                     messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
                     messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+                    messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
                     messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
                     messageJSON.put(Constants.JSON_AUDIO_PART_NO_KEY, count);
                     messageJSON.put(Constants.JSON_AUDIO_PART_SIZE_KEY, lastIdx - i);
                     messageJSON.put(Constants.JSON_AUDIO_SIZE_KEY, audioBytes.length);
                     messageJSON.put(Constants.JSON_AUDIO_EXTENSION, audioExtension);
                     messageJSON.put(Constants.JSON_AUDIO_NAME, audioName);
+                    messageJSON.put(Constants.JSON_ROUTING_NODES, "");
 
                     InputStream messageStream = new ByteArrayInputStream(messageJSON.toString().getBytes());
                     Payload messagePayload = Payload.fromStream(messageStream);
@@ -592,6 +627,7 @@ public class CommunicationManager {
             String encryptionKey = CryptoManager.INSTANCE.generateKey();
             String encryptedMessage = CryptoManager.INSTANCE.encryptMessage(encryptionKey, audioName);
 
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_ID_KEY, messageId);
             messageJSON.put(Constants.JSON_SOURCE_DEVICE_ID_KEY, myDeviceId);
             messageJSON.put(Constants.JSON_DESTINATION_DEVICE_ID_KEY, contact.getDeviceID());
@@ -599,10 +635,12 @@ public class CommunicationManager {
             messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_AUDIO);
             messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
             messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, audioBytes.length);
             messageJSON.put(Constants.JSON_AUDIO_EXTENSION, audioExtension);
             messageJSON.put(Constants.JSON_AUDIO_NAME, audioName);
+            messageJSON.put(Constants.JSON_ROUTING_NODES, "");
 
             db.getMediaMessageUriDao().addMediaMessageUri(new MediaMessageUri(
                     messageId, PreviewAudioActivity.audioURI.toString()

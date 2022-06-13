@@ -102,6 +102,8 @@ public interface Constants {
     String JSON_AUDIO_PART_SIZE_KEY = "partSize";
     String JSON_AUDIO_EXTENSION = "audioExtension";
     String JSON_AUDIO_NAME = "audioName";
+    String JSON_IS_ENCRYPTED = "isEncrypted";
+    String JSON_ROUTING_NODES = "routingNodes";
 
     String[] REQUIRED_PERMISSIONS =
             new String[] {

@@ -293,6 +293,9 @@ public class BackgroundCommunicationService extends Service {
                                 } else {
                                     Log.d(TAG, "onPayloadReceived: the message is routing to another device");
 
+                                    String routingNodes = messageJSON.getString(Constants.JSON_ROUTING_NODES);
+                                    routingNodes += myDeviceId + ";";
+                                    messageJSON.put(Constants.JSON_ROUTING_NODES, routingNodes);
                                     Utilities.saveDataMemoryMessageToDatabase(messageJSON, payload.getId(), Constants.MESSAGE_STATUS_ROUTING);
                                 }
 

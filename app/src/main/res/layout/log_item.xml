@@ -55,5 +55,16 @@
             android:layout_below="@id/destination_contact_name_item"
             android:layout_marginTop="20dp"
             android:layout_marginStart="10dp"/>
+
+        <TextView
+            android:id="@+id/routing_nodes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:text="@string/timestamp"
+            android:textColor="@color/colorText"
+            android:layout_below="@id/destination_timestamp"
+            android:layout_marginTop="20dp"
+            android:layout_marginStart="10dp"/>
     </RelativeLayout>
 </androidx.cardview.widget.CardView>
