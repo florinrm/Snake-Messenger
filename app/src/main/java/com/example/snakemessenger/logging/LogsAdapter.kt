@@ -27,6 +27,7 @@ class LogsAdapter(var logs: List<MessageExchangeLog>) : RecyclerView.Adapter<Rec
             viewBinding.sourceContactNameItem.text = log.sourceContactId
             viewBinding.destinationTimestamp.text = Converters.fromTimestamp(log.destinationTimestamp).toString()
             viewBinding.sourceTimestamp.text = Converters.fromTimestamp(log.sourceTimestamp).toString()
+            viewBinding.routingNodes.text = log.routingNodes
         }
     }
 }

@@ -52,25 +52,44 @@ import static com.example.snakemessenger.services.BackgroundCommunicationService
 public class Utilities {
     public static Message saveOwnMessageToDatabase(JSONObject messageJSON, long payloadId, int messageStatus) {
         try {
+            Message message = null;
+            boolean isEncrypted = messageJSON.getBoolean(Constants.JSON_IS_ENCRYPTED);
             String encryptionKey = messageJSON.getString(Constants.JSON_ENCRYPTION_KEY);
-            String encryptedMessage = messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY);
-            String decryptedMessage = CryptoManager.INSTANCE.decryptMessage(encryptionKey, encryptedMessage);
+            if (isEncrypted) {
+                String encryptedMessage = messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY);
+                String decryptedMessage = CryptoManager.INSTANCE.decryptMessage(encryptionKey, encryptedMessage);
 
-            Message message = new Message(
-                    0,
-                    messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY),
-                    payloadId,
-                    messageJSON.getInt(Constants.JSON_MESSAGE_TYPE_KEY),
-                    messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
-                    messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
-                    messageJSON.getInt(Constants.JSON_CONTENT_TYPE_KEY),
-                    decryptedMessage,
-                    messageJSON.getLong(Constants.JSON_MESSAGE_TOTAL_SIZE),
-                    messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
-                    0,
-                    messageStatus
-            );
-
+                message = new Message(
+                        0,
+                        messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY),
+                        payloadId,
+                        messageJSON.getInt(Constants.JSON_MESSAGE_TYPE_KEY),
+                        messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
+                        messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
+                        messageJSON.getInt(Constants.JSON_CONTENT_TYPE_KEY),
+                        decryptedMessage,
+                        messageJSON.getLong(Constants.JSON_MESSAGE_TOTAL_SIZE),
+                        messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
+                        0,
+                        messageStatus
+                );
+            } else {
+                message = new Message(
+                        0,
+                        messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY),
+                        payloadId,
+                        messageJSON.getInt(Constants.JSON_MESSAGE_TYPE_KEY),
+                        messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
+                        messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
+                        messageJSON.getInt(Constants.JSON_CONTENT_TYPE_KEY),
+                        messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY),
+                        messageJSON.getLong(Constants.JSON_MESSAGE_TOTAL_SIZE),
+                        messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
+                        0,
+                        messageStatus
+                );
+            }
+            message.setEncryptionKey(encryptionKey);
             db.getMessageDao().addMessage(message);
 
             Log.d(MainActivity.TAG, "saveOwnMessageToDatabase: saved Own Message to Room");
@@ -98,7 +117,8 @@ public class Utilities {
                         messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
                         messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
                         messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
-                        System.currentTimeMillis()
+                        System.currentTimeMillis(),
+                        messageJSON.getString(Constants.JSON_ROUTING_NODES)
                 );
 
                 db.getMessageExchangeLogDao().addMessageExchangeLog(messageExchangeLog);
@@ -115,26 +135,50 @@ public class Utilities {
 
     public static void saveDataMemoryMessageToDatabase(JSONObject messageJSON, long payloadId, int messageStatus) {
         try {
-            String encryptionKey = messageJSON.getString(Constants.JSON_ENCRYPTION_KEY);
-            String encryptedMessage = messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY);
-            String decryptedMessage = CryptoManager.INSTANCE.decryptMessage(encryptionKey, encryptedMessage);
+            boolean isEncrypted = messageJSON.getBoolean(Constants.JSON_IS_ENCRYPTED);
 
-            Message message = new Message(
-                    0,
-                    messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY),
-                    payloadId,
-                    messageJSON.getInt(Constants.JSON_MESSAGE_TYPE_KEY),
-                    messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
-                    messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
-                    messageJSON.getInt(Constants.JSON_CONTENT_TYPE_KEY),
-                    decryptedMessage,
-                    messageJSON.getLong(Constants.JSON_MESSAGE_TOTAL_SIZE),
-                    messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
-                    0,
-                    messageStatus
-            );
+            if (isEncrypted) {
+                String encryptionKey = messageJSON.getString(Constants.JSON_ENCRYPTION_KEY);
+                String encryptedMessage = messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY);
+                String decryptedMessage = CryptoManager.INSTANCE.decryptMessage(encryptionKey, encryptedMessage);
 
-            db.getMessageDao().addMessage(message);
+                Message message = new Message(
+                        0,
+                        messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY),
+                        payloadId,
+                        messageJSON.getInt(Constants.JSON_MESSAGE_TYPE_KEY),
+                        messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
+                        messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
+                        messageJSON.getInt(Constants.JSON_CONTENT_TYPE_KEY),
+                        decryptedMessage,
+                        messageJSON.getLong(Constants.JSON_MESSAGE_TOTAL_SIZE),
+                        messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
+                        0,
+                        messageStatus
+                );
+
+                message.setEncrypted(true);
+                message.setEncryptionKey(encryptionKey);
+                db.getMessageDao().addMessage(message);
+            } else {
+                Message message = new Message(
+                        0,
+                        messageJSON.getString(Constants.JSON_MESSAGE_ID_KEY),
+                        payloadId,
+                        messageJSON.getInt(Constants.JSON_MESSAGE_TYPE_KEY),
+                        messageJSON.getString(Constants.JSON_SOURCE_DEVICE_ID_KEY),
+                        messageJSON.getString(Constants.JSON_DESTINATION_DEVICE_ID_KEY),
+                        messageJSON.getInt(Constants.JSON_CONTENT_TYPE_KEY),
+                        messageJSON.getString(Constants.JSON_MESSAGE_CONTENT_KEY),
+                        messageJSON.getLong(Constants.JSON_MESSAGE_TOTAL_SIZE),
+                        messageJSON.getLong(Constants.JSON_MESSAGE_TIMESTAMP_KEY),
+                        0,
+                        messageStatus
+                );
+
+                message.setEncrypted(false);
+                db.getMessageDao().addMessage(message);
+            }
 
             Log.d(MainActivity.TAG, "saveMessageInfoToDatabase: saved Data Memory Message to Room");
         } catch (JSONException e) {
@@ -321,6 +365,7 @@ public class Utilities {
             messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_IMAGE);
             messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
             messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, imageMessage.getTotalSize());
         } catch (JSONException e) {
@@ -342,7 +387,15 @@ public class Utilities {
         } else {
             Log.d(TAG, "saveImageToDatabase: the message is routing to another device");
 
-            saveDataMemoryMessageToDatabase(messageJSON, imageMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+            String routingNodes;
+            try {
+                routingNodes = messageJSON.getString(Constants.JSON_ROUTING_NODES);
+                routingNodes += myDeviceId + ";";
+                messageJSON.put(Constants.JSON_ROUTING_NODES, routingNodes);
+                saveDataMemoryMessageToDatabase(messageJSON, imageMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -408,6 +461,7 @@ public class Utilities {
             messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_FILE);
             messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
             messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, fileMessage.getTotalSize());
         } catch (JSONException e) {
@@ -429,7 +483,15 @@ public class Utilities {
         } else {
             Log.d(TAG, "saveFileToDatabase: the message is routing to another device");
 
-            saveDataMemoryMessageToDatabase(messageJSON, fileMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+            String routingNodes = null;
+            try {
+                routingNodes = messageJSON.getString(Constants.JSON_ROUTING_NODES);
+                routingNodes += myDeviceId + ";";
+                messageJSON.put(Constants.JSON_ROUTING_NODES, routingNodes);
+                saveDataMemoryMessageToDatabase(messageJSON, fileMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -497,6 +559,7 @@ public class Utilities {
             messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_VIDEO);
             messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
             messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, videoMessage.getTotalSize());
         } catch (JSONException e) {
@@ -518,7 +581,15 @@ public class Utilities {
         } else {
             Log.d(TAG, "saveVideoToDatabase: the message is routing to another device");
 
-            saveDataMemoryMessageToDatabase(messageJSON, videoMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+            String routingNodes = null;
+            try {
+                routingNodes = messageJSON.getString(Constants.JSON_ROUTING_NODES);
+                routingNodes += myDeviceId + ";";
+                messageJSON.put(Constants.JSON_ROUTING_NODES, routingNodes);
+                saveDataMemoryMessageToDatabase(messageJSON, videoMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -586,6 +657,7 @@ public class Utilities {
             messageJSON.put(Constants.JSON_CONTENT_TYPE_KEY, Constants.CONTENT_AUDIO);
             messageJSON.put(Constants.JSON_MESSAGE_TYPE_KEY, Constants.MESSAGE_TYPE_MESSAGE);
             messageJSON.put(Constants.JSON_ENCRYPTION_KEY, encryptionKey);
+            messageJSON.put(Constants.JSON_IS_ENCRYPTED, true);
             messageJSON.put(Constants.JSON_MESSAGE_CONTENT_KEY, encryptedMessage);
             messageJSON.put(Constants.JSON_MESSAGE_TOTAL_SIZE, audioMessage.getTotalSize());
         } catch (JSONException e) {
@@ -606,8 +678,15 @@ public class Utilities {
             }
         } else {
             Log.d(TAG, "saveAudioToDatabase: the message is routing to another device");
-
-            saveDataMemoryMessageToDatabase(messageJSON, audioMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+            String routingNodes;
+            try {
+                routingNodes = messageJSON.getString(Constants.JSON_ROUTING_NODES);
+                routingNodes += myDeviceId + ";";
+                messageJSON.put(Constants.JSON_ROUTING_NODES, routingNodes);
+                saveDataMemoryMessageToDatabase(messageJSON, audioMessage.getPayloadId(), Constants.MESSAGE_STATUS_ROUTING);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
         }
     }
 }

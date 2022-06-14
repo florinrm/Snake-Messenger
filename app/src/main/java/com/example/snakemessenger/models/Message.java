@@ -44,6 +44,15 @@ class Message {
     @ColumnInfo(name = "status")
     private int status;
 
+    @ColumnInfo(name = "nodes")
+    private String nodes;
+
+    @ColumnInfo(name = "isEncrypted")
+    private boolean isEncrypted;
+
+    @ColumnInfo(name = "encryptionKey")
+    private String encryptionKey;
+
     @Ignore
     public Message() {
     }
@@ -61,6 +70,8 @@ class Message {
         this.timestamp = timestamp;
         this.timesSent = timesSent;
         this.status = status;
+        this.nodes = "";
+        this.isEncrypted = false;
     }
 
     public int getId() {
@@ -157,5 +168,34 @@ class Message {
 
     public void setMessageId(String messageId) {
         this.messageId = messageId;
+    }
+
+    public String getNodes() {
+        return nodes;
+    }
+
+    public void setNodes(String nodes) {
+        this.nodes = nodes;
+    }
+
+    public void addNode(String node) {
+        nodes += node;
+        nodes += ";";
+    }
+
+    public boolean isEncrypted() {
+        return isEncrypted;
+    }
+
+    public void setEncrypted(boolean encrypted) {
+        isEncrypted = encrypted;
+    }
+
+    public String getEncryptionKey() {
+        return encryptionKey;
+    }
+
+    public void setEncryptionKey(String encryptionKey) {
+        this.encryptionKey = encryptionKey;
     }
 }
